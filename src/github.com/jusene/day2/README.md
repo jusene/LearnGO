@@ -324,5 +324,322 @@ func main() {
 }
 ```
 
+#### 修剪
+
+字符修剪
+
+```go
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+func main() {
+	fmt.Printf("%q\n", strings.Trim(" !!! Goland !!! ", " ! "))
+	fmt.Printf("%q\n", strings.Trim(" !!! Goland !!! ", "!"))
+	fmt.Printf("%q\n", strings.TrimLeft(" !!! Goland !!! ", " ! "))
+	fmt.Printf("%q\n", strings.TrimRight(" !!! Goland !!! ", " ! "))
+	fmt.Println(strings.TrimSpace("\t\n 这是\t一句话\r\n\t"))
+	fmt.Printf("%q\n", strings.Trim("今天天气真好", "今天"))
+}
+```
+
+#### 分割
+
+```go
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+func main() {
+	ls := strings.Split("A, B, C", ",")
+	fmt.Printf("%s\n%s\n%s\n", ls[0], ls[1], ls[2])
+}
+```
+
+#### 插入字符
+
+strings.Join用于将元素类型string的slice使用分隔符拼接组成一个字符串。
+
+```go
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+func main() {
+	str := "the quick brower 中文"
+	strSli := strings.Fields(str)
+	fmt.Printf("%s\n", strSli)
+	for _, val := range strSli {
+		fmt.Printf("%s", val)
+	}
+	str2 := strings.Join(strSli, ";")
+	fmt.Printf("%s\n", str2)
+
+	str3 := strings.Split(str, " ")
+	str4 := strings.Join(str3, ",")
+	fmt.Println(str4)
+}
+```
+
+strings.Filed 函数用于把字符串转换为字符串切片，通过range获得每个切片值
+
+### strconv包
+
+这个包用于字符串与其他类型的转换
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func main() {
+	orig := "123"
+	fmt.Printf("orig当前是%T类型，且操作系统是%d位\n", orig, strconv.IntSize)
+
+	// 字符转换int
+	num, _ := strconv.Atoi(orig)
+	fmt.Printf("%T\n", num)
+	// 字符转换float64
+	fl, _ := strconv.ParseFloat(orig, 64)
+	fmt.Printf("%T\n", fl)
+	// 十进制转换字符
+	news := strconv.Itoa(num)
+	fmt.Printf("%T\n", news)
+	// 64位转换字符串
+	// strconv.FormatFloat(f float64, fmt bytes, prce int, bitsize int) string
+	new2 := strconv.FormatFloat(fl, 'f', 64, 64)
+	fmt.Printf("%T\n", new2)
+	// fmt表示格式('b','e','f','g'),prce表示精度，bitSize的值为32表示float32，64表示float64
+}
+```
+
+### 字符格式化
+
+- %% %字面量
+- %b 一个二进制整数，将一个整数格式化为二进制的表达方式
+- %c 一个Unicode的字符串
+- %d 十进制数值
+- %o 八进制数值
+- %x 小写十六进制数值
+- %X 大写十六进制数值
+- %U 一个unicode表示法表示的整型码值，默认是4个整数字符
+- %s 输出原生的UTF-8字节表示的字符，如果console不支持UTF-8编码，则会输出乱码
+- %t 以true或者false的方式输出布尔值
+- %v 使用默认格式输出值，或者如果方法存在，则使用类型String()方法输出自定义值
+- %T 输出值的类型
+
+### 强制类型转换
+
+在强制类型转换时，需要注意数据长度被截断而发生的数据精度损失（如浮点型转换整型）与值溢出（值超过转换目标类型的值范围时）
+
+```go
+package main
+
+import (
+    "fmt"
+)
+
+func main() {
+    a := 32
+    b := 3
+    fmt.Printf("%d", a/b)
+    fmt.Printf("%f", float64(a)/float64(b))
+}
+```
+
+#### 自定义类型
+
+```go
+package main
+
+import (
+    "fmt"
+)
+
+func main() {
+    type stu struct {
+        Name string
+        Age int64
+    }
+    
+    student := stu{
+        Name: "guoxing",
+        Age: 12,
+    }
+    
+    fmt.Println(student.Name, student.Age)
+}
+```
+
+#### 类型别名
+
+byte类型是int8类型别名，rune类型实际上是int32类型别名
+
+```go
+package main
+
+import (
+    "fmt"
+)
+
+type (
+    字符串 string
+)
+
+func main() {
+    var b 字符串
+    b = "这是中文"
+    fmt.Println(b)
+    a := "这也是中文"
+    // fmt.Println(b+a) // 自定义类型别名和string是两个类型，不能直接相加
+    fmt.Println(string(b)+a)
+}
+```
+
+#### 指针
+
+指针变量都是一个内存位置，每个内存位置都有其定义的地址，可以使用&运算
+
+```go
+package main 
+
+import (
+    "fmt"
+)
+
+func main() {
+    a := 10
+    fmt.Printf("%x\n", &a) 
+}
+```
+
+指针是一个变量，其值是另一个变量的地址，所有指针的值的实际数据类型都是相同，他表示内存地址的长十六进制数
+
+使用指针基本三个步骤：
+
+- 定义一个指针变量
+- 将一个变量的地址赋值给一个指针
+- 最后访问指针变量中可用地址的值
+
+```go
+package main
+
+import "fmt"
+
+func main()  {
+	a := 20
+	ap := &a
+	fmt.Printf("a的地址：%x\n", &a)
+	fmt.Printf("ap的地址：%x\n", ap)
+	fmt.Printf("*ap的地址：%x\n", *ap)
+}
+```
+
+#### nil指针
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	var pri *int
+	fmt.Printf("%x\n", pri)
+}
+```
+
+nil指针在标准库中定义值为0的常量
+
+#### 指针的指针
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	var null *int
+	nu := &null
+	fmt.Printf("null --> nil: %x\n", null)
+	fmt.Printf("null的内存地址: %x\n", nu)
+	fmt.Printf("nu --> null --> nil: %x\n", *nu)
+	fmt.Printf("nu的内存地址：%x\n", &nu)
 
 
+	A := 10
+	AP := &A
+	APP := &AP
+	fmt.Printf("A: %d\n", A)
+	fmt.Printf("AP: %x\n", AP)
+	fmt.Printf("*AP: %d\n", *AP)
+	fmt.Printf("APP: %x\n", APP)
+	fmt.Printf("*APP: %x\n", *APP)
+	fmt.Printf("**APP: %d\n", **APP)
+}
+```
+
+#### 指针数组
+
+```go
+package main
+
+import "fmt"
+
+const MAX int = 3
+
+func main() {
+
+	a := []int{10, 100, 200}
+	var ptr [MAX]*int
+
+	for i := 0; i < MAX; i++ {
+		ptr[i] = &a[i]
+		fmt.Printf("a[%d]的地址 = %x\n", i, ptr[i] )
+	}
+
+	for i := 0; i < MAX; i++ {
+		fmt.Printf("a[%d]的值是: %d\n", i, *ptr[i])
+	}
+}
+```
+
+#### 传递给函数
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	a := 100
+	b := 200
+
+	fmt.Printf("交换之前a的值为: %d\n", a)
+	fmt.Printf("交换之前b的值为: %d\n", b)
+
+	swap(&a, &b)
+
+	fmt.Printf("交换之后a的值: %d\n", a)
+	fmt.Printf("交换之后b的值: %d\n", b)
+}
+
+func swap(x *int, y *int) {
+	var temp  int
+	temp = *x
+	*x = *y
+	*y = temp
+
+}
+```
