@@ -162,6 +162,10 @@ func main() {
 
 切片的本质就是对底层数组的封装，它包含了三个信息：底层数组的指针、切片的长度（len）和切片的容量（cap）
 
+切片就是一个框，框住一块连续的内存
+
+切片是应用类型，真正的数据都是保存在底层数组中
+
 #### 判断切片是否为空
 
 ```go
@@ -249,3 +253,51 @@ func main() {
 }
 ```
 
+#### 限制容量
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+source := []int{10, 20, 30, 40, 50}
+slice := source[2:3]
+fmt.Println(len(slice), cap(slice))
+// 容量足够，append会修改source的值
+slice = append(slice, 11)
+fmt.Println(slice, source)
+
+slice1 := source[2:3:3]
+// 容量不足， append会新创建一个新的底层数组
+fmt.Println(len(slice1), cap(slice1))
+slice2 := append(slice1, 11)
+fmt.Println(slice2, source)
+}
+```
+
+#### 多维切片
+
+```go
+slice := [][]int{{10}, {100, 200}}
+slice[0] = append(slice[0], 20)
+fmt.Println(slice)
+```
+
+#### 将切片传递给函数
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	slice := make([]int, 1e6)
+	fmt.Println(foo(&slice))
+}
+
+
+func foo(slice *[]int) *[]int {
+	return slice
+}
+```
