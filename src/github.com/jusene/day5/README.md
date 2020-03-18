@@ -129,6 +129,35 @@ func main() {
 }
 ```
 
+长度和容量自动扩容
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	var numSlice []int
+	for i := 0; i < 10; i++ {
+		numSlice = append(numSlice, i)
+		fmt.Printf("%v len:%d cap:%d ptr:%p \n", numSlice, len(numSlice), cap(numSlice), numSlice)
+	}
+}
+
+[0] len:1 cap:1 ptr:0xc0000b4008 
+[0 1] len:2 cap:2 ptr:0xc0000b4040 
+[0 1 2] len:3 cap:4 ptr:0xc0000b8020 
+[0 1 2 3] len:4 cap:4 ptr:0xc0000b8020 
+[0 1 2 3 4] len:5 cap:8 ptr:0xc0000ac080 
+[0 1 2 3 4 5] len:6 cap:8 ptr:0xc0000ac080 
+[0 1 2 3 4 5 6] len:7 cap:8 ptr:0xc0000ac080 
+[0 1 2 3 4 5 6 7] len:8 cap:8 ptr:0xc0000ac080 
+[0 1 2 3 4 5 6 7 8] len:9 cap:16 ptr:0xc0000ba000 
+[0 1 2 3 4 5 6 7 8 9] len:10 cap:16 ptr:0xc0000ba000 
+```
+
+从长度与容量的变化和指针的变化，append会在容量不足的时候，在底层数组上自动扩容
+
 #### 切片本质
 
 切片的本质就是对底层数组的封装，它包含了三个信息：底层数组的指针、切片的长度（len）和切片的容量（cap）
@@ -178,6 +207,45 @@ func main() {
 	for index, value := range s {
 		fmt.Println(index, value)
 	}
+}
+```
+
+#### 使用copy()函数复制切片
+
+切片是引用类型，切片共享同一个底层数组，如果一个切片修改底层数组的共享部分，另一个切片也受影响
+
+```go
+copy(destSlice, srcSlice []T)
+```
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	a := []int{1, 2, 3, 4, 5}
+	c := make([]int, 5, 6)
+	copy(c, a)
+	fmt.Println(a)
+	fmt.Println(c)
+	c[0] = 1000
+	fmt.Println(a)
+	fmt.Println(c)
+}
+```
+
+#### 从切片中删除元素
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	nums := []int{1, 2, 3, 4}
+	newNums := append(nums[:2], nums[3:]...) // 通过切片重新组成新的切片*
+	fmt.Println(newNums)
 }
 ```
 
