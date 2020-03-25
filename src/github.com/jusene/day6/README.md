@@ -8,13 +8,13 @@ map是一种无序的基于key-value的数据结构，Go语言中的map是引用
 
 #### map定义
 
-```go
-mao[KeyType]ValueType
+```
+map[KeyType]ValueType
 ```
 
 map类型的变量默认初始值为nil，需要使用make()函数来分配内存
 
-```go
+```
 make(map[KeyType]ValueType, [cap])
 ```
 
@@ -57,7 +57,7 @@ func main() {
 
 #### 判断某个键是否存在
 
-```go
+```
 value , ok := map[key]
 ```
 
@@ -102,7 +102,7 @@ func main() {
 
 #### 删除键对值
 
-```go
+```
 delete(map, key)
 ```
 
