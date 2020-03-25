@@ -2,18 +2,5 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/GeertJohan/go.incremental" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/GeertJohan/go.rice" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/akavel/rsrc" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/daaku/go.zipexe" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/go-sql-driver/mysql" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/jessevdk/go-flags" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/labstack/echo" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/labstack/gommon" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/mattn/go-colorable" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/mattn/go-isatty" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/nkovacs/streamquote" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/rakyll/statik" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/src/github.com/valyala/fasttemplate" vcs="Git" />
   </component>
 </project>
