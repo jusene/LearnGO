@@ -68,3 +68,128 @@ func isBig(x int) bool {
 	return false
 }
 ```
+
+### 可变参数
+
+```go
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	age := ageMinOrMax("min", 1, 3, 4, 59)
+	fmt.Printf("年龄最小的参数是%d岁\n", age)
+
+	ageArr := []int{6, 4, 43, 2, 32}
+	age = ageMinOrMax("max", ageArr...)
+	fmt.Printf("年龄最大的参数是%d岁\n", age)
+}
+
+func ageMinOrMax(m string, a ...int) int {
+	if len(a) == 0 {
+		return 0
+	}
+
+	if m == "max" {
+		max := a[0]
+		for _, v := range a {
+			if v > max {
+				max = v
+			}
+		}
+		return max
+	} else if m == "min" {
+		min := a[0]
+		for _, v := range a {
+			if v < min {
+				min = v
+			}
+		}
+		return min
+	} else {
+		e := -1
+		return e
+	}
+}
+```
+
+### 返回值
+
+```go
+package  main
+
+import "fmt"
+
+func main()  {
+	ret := dosome()
+	if ret == nil {
+		fmt.Println(ret)
+	}
+
+}
+
+func dosome() []int {
+	return nil // nil可以看作一个有效的slice, 没必要显示返回一个长度为0的切片
+}
+```
+
+### defer语句
+
+defer语句延迟处理，先被defer的语句最后被执行，最后被defer的语句，最先被执行。
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("打开文件")
+	defer fmt.Println("关闭远程连接")
+	defer fmt.Println("关闭文件")
+	fmt.Println("读取文件")
+}
+```
+
+### 变量作用域
+
+```go
+package main
+
+import "fmt"
+
+// 定义全局变量num
+var num int64 = 10
+
+func testNum() {
+	num := 100
+	fmt.Println(num)
+}
+
+func main() {
+	testNum() // 当局部变量和全局变量重名，优先使用局部变量
+}
+```
+
+for, if, switch语句块使用这种变量也只可以在当前块中使用
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	testLocalVars(20, 2)
+}
+
+func testLocalVars(x, y int) {
+	fmt.Println(x, y)
+	if x > 10 {
+		z := 100 // 变量z只在if块中生效
+		fmt.Println(z)
+	}
+	// fmt.Println(z) 无法使用变量z
+}
+```
+
