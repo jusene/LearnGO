@@ -131,7 +131,7 @@ func main()  {
 }
 
 func dosome() []int {
-	return nil // nil可以看作一个有效的slice, 没必要显示返回一个长度为0的切片
+	return nil // nil可以看作一个有效的slice, 没必要显示返回一个长度为0的切片[]int{}
 }
 ```
 
@@ -193,3 +193,228 @@ func testLocalVars(x, y int) {
 }
 ```
 
+### 函数类型与变量
+
+```go
+package main
+
+import "fmt"
+
+type calculation func(int, int) int
+
+func add(x, y int) int {
+	return x + y
+}
+
+func main() {
+	var c calculation // 申明一个calculation类型的变量
+	c = add
+	fmt.Printf("%T", c) // main.calculation
+	fmt.Println(c(1, 3))
+
+	f := add          // 将add函数赋值给变量f
+	fmt.Printf("%T", f) // func(int, int) int
+	fmt.Println(f(1, 3))
+}
+```
+
+### 高阶函数
+
+函数作为参数
+
+```go
+package main
+
+import (
+	"fmt"
+)
+
+func add(x, y int) int {
+	return x + y
+}
+
+func calc(x, y int, op func(int, int) int) int {
+	return op(x, y)
+}
+
+func main() {
+	ret := calc(10, 20, add)
+	fmt.Println(ret)
+}
+```
+
+函数作为返回值
+
+```go
+package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+func do(s string) (func(int, int) int, error) {
+	switch s {
+	case "+":
+		return add, nil
+	case "*":
+		return sub, nil
+	default:
+		err := errors.New("无法识别的操作符")
+		return nil, err
+	}
+}
+
+func add(x, y int) int {
+	return x + y
+}
+
+func sub(x, y int) int {
+	return x * y
+}
+
+func main() {
+	op, err	:= do("+")
+	if err != nil {
+		panic(err)
+	}
+	ret := op(10, 20)
+	fmt.Println(ret)
+}
+```
+
+### 匿名函数与闭包
+
+```
+func(参数)(返回值) {
+    函数体
+}
+```
+
+匿名函数因为没有函数名，所以没办法像普通函数那样调用，所以匿名函数需要保存到某个变量或者作为立即执行函数:
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	// 将匿名函数保存到变量
+	add := func(x, y int) int {
+		return x + y
+	}
+	ret := add(10, 20)
+	fmt.Println(ret)
+
+	// 自执行函数，匿名函数定义加()直接完成
+	ret1 := func(x, y int) int {
+		return x + y
+	}(10, 20)
+	fmt.Println(ret1)
+}
+```
+
+匿名函数多用于实现回调函数和闭包
+
+### 闭包
+
+闭包指的是一个函数和与其相关的引用环境组合而成的实体。简单来说，闭包=函数+引用环境。
+
+```go
+package main
+
+import "fmt"
+
+func Add() func(b int) int {
+	var a int
+	return func(b int) int {
+		a += b
+		return a
+	}
+}
+
+func main() {
+	var f = Add()
+	fmt.Println(f(10)) // 10
+	fmt.Println(f(10)) // 20
+	fmt.Println(f(10)) // 30
+}
+```
+
+整个函数的生命周期中应用了外部作用域a的变量，此时函数f就是一个闭包，在f的生命周期中a是一直有效的。
+
+```go
+package main
+
+import "fmt"
+
+func Add(a int) func(b int) int {
+	return func(b int) int {
+		a += b
+		return a
+	}
+}
+
+func main() {
+	var f = Add(10)
+	fmt.Println(f(10)) // 10
+	fmt.Println(f(10)) // 20
+	fmt.Println(f(10)) // 30
+}
+```
+
+闭包进阶：
+```go
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+func checkFile(filename string) func(prefix, suffix string) bool {
+	return func(prefix, suffix string) bool {
+		if strings.HasPrefix(filename, prefix) && strings.HasSuffix(filename, suffix) {
+			return true
+		}
+		return false
+	}
+}
+
+func main() {
+	jpgFunc := checkFile("test.jpg")
+	fmt.Println(jpgFunc("test", "jpg"))
+	fmt.Println(jpgFunc("test", "txt"))
+}
+```
+
+闭包进阶：
+```go
+package main
+
+import "fmt"
+
+func calc(base int) (func(int) int, func(int) int) {
+	add := func(i int) int {
+		base += i
+		return base
+	}
+
+	sub := func(i int) int {
+		base -= i
+		return base
+	}
+	return add, sub
+}
+
+func main() {
+	f1, f2 := calc(10)
+	fmt.Println(f1(1), f2(2)) // 11 9
+	fmt.Println(f1(1), f2(2)) // 10 8
+}
+```
+
+闭包进阶:
+```go
+
+```
