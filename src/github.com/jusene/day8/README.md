@@ -416,5 +416,244 @@ func main() {
 
 闭包进阶:
 ```go
+package main
 
+import "fmt"
+
+func main() {
+	j := 5
+	a := func() func() {
+		i := 10
+		return func() {
+			fmt.Printf("i = %d j = %d\n", i, j)
+		}
+	}()
+
+	a()
+	j = 10
+	a()
+}
 ```
+
+### 递归函数
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	// 阶乘
+	var i int = 15
+	fmt.Printf("%d的阶乘是%d", i, Factorial(uint64(i)))
+}
+
+func Factorial(n uint64) (result uint64) {
+	if (n > 0) {
+		result = n * Factorial(n - 1)
+		return result
+	}
+	return 1
+}
+```
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	// 斐波那契数列
+	for i := 0; i < 10; i++  {
+		fmt.Printf("%d\t", Fibonacci(i))
+	}
+}
+
+func Fibonacci(n int) int {
+	if n < 2 {
+		return n
+	}
+	return Fibonacci(n-2) + Fibonacci(n-1)
+}
+```
+
+## defer执行时机
+
+在Go语言中return语句在底层分两步执行，分为给返回值赋值和RET指令两步，而defer语句的执行时机就是返回值赋值后，RET指令之前。
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("return:", a())
+}
+
+func a() int {
+	var i int
+	defer func() {
+		i++
+		fmt.Println("defer2:", i)
+	}()
+
+	defer func() {
+		i++
+		fmt.Println("defer1:", i)
+	}()
+	return i // 返回值未先声明，匿名需要先声明，再赋值，defer的执行时机在赋值和RET指令间，所以为0
+}
+```
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("return:", b())
+}
+
+func b() (i int) {
+	defer func() {
+		i++
+		fmt.Println("defer2:", i)
+	}()
+
+	defer func() {
+		i++
+		fmt.Println("defer1:", i)
+	}()
+
+	return i // 返回值有名，直接赋值，匿名函数的最大特点可以继承变量的值，RET返回之前需要执行defer，所以i=2
+}
+```
+
+defer经典案例
+```go
+package main
+
+import "fmt"
+
+func f1() int {
+	x := 5
+	defer func() {
+		x++
+	}()
+	return x
+}
+
+func f2() (x int) {
+	defer func() {
+		x++
+	}()
+	return 5
+}
+
+func f3() (y int) {
+	x := 5
+	defer func() {
+		x++
+	}()
+	return x
+}
+func f4() (x int) {
+	defer func(x int) {
+		x++
+	}(x)
+	return 5
+}
+func main() {
+	fmt.Println(f1())
+	fmt.Println(f2())
+	fmt.Println(f3())
+	fmt.Println(f4())
+}
+```
+
+defer面试题
+
+```go
+package main
+
+import "fmt"
+
+func calc(index string, a, b int) int {
+	ret := a + b
+	fmt.Println(index, a, b, ret)
+	return ret
+}
+
+func main() {
+	x := 1
+	y := 2
+	defer calc("AA", x, calc("A", x, y)) // 先执行函数获取值
+	x = 10
+	defer calc("BB", x, calc("B", x, y))
+	y = 20
+}
+
+A 1 2 3
+B 10 2 12
+BB 10 12 22
+AA 1 3 4
+```
+
+### panic/recover
+
+使用panic/recover模式来处理错误。 panic可以在任何地方引发，但recover只有在defer调用的函数中有效
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	test()
+}
+
+func test() {
+	defer func() { // 有效，在defer语句的匿名函数中调用
+		fmt.Println(recover())
+	}()
+
+	defer func() { // 无效，间接调用recover(),返回nil
+		func() {
+			fmt.Println(recover())
+		}()
+	}()
+
+	defer fmt.Println(recover()) /* 无效，recover() 相当于直接调用然后被外部函数打印，返回nil*/
+	defer recover() // 无效，相当于直接调用recover()，返回nil
+	panic("发生错误")
+}
+```
+
+捕获异常
+```go
+package main
+
+import "log"
+
+func main() {
+	test()
+}
+
+func test() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("捕获到的异常: %v", r) // recover()只能捕获最近的一个异常
+		}
+	}()
+
+	defer func() {
+		panic("第二个错误")
+	}()
+
+	panic("第一个错误")
+}
+```
+
+`注意`
+- recover()必须搭配defer使用
+- defer一定要在可能引发panic的语句之前定义
