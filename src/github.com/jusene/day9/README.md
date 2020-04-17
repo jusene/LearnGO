@@ -332,7 +332,7 @@ func Fscanf(r io.Reader, format string, a ...interface{}) (n int, err error)
 
 Sscan不是从标准输入中读取数据而是从指定字符串中读取数据
 
-```go
+```
 func Sscan(str string, a ...interface{}) (n int, err error)
 func Sscanln(str string, a ...interface{}) (n int, err error)
 func Sscanf(str string, format string, a ...interface{}) (n int, err error)
