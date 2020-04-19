@@ -15,6 +15,7 @@ func (p *Person) SetDream(dreams []string) {
 func (p *Person) SetDream2(dreams []string) {
 	p.dreams = make([]string, len(dreams))
 	fmt.Println(p.dreams)
+	fmt.Println(dreams)
 	copy(p.dreams, dreams)
 	fmt.Println(p.dreams)
 }
@@ -28,8 +29,9 @@ func main() {
 	data := []string{"eat", "sleep", "play"}
 	//p1.SetDream(data)
 
+	data[1] = "不睡觉"
 	p1.SetDream2(data)
 
-	data[1] = "不睡觉"
+
 	fmt.Println(p1.dreams)
 }

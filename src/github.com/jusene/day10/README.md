@@ -750,10 +750,65 @@ func main() {
 }
 ```
 
-### 结构体和方法
-
-因为slice和map这两种数据类型都包含了指向底层数据的指针，因此我们在需要复制它们时要特别注意。
+### 嵌入类型的方法和继承
 
 ```go
+package main
 
+import (
+	"fmt"
+	"math"
+)
+
+type Point struct {
+	x, y float64
+}
+
+func (p *Point) Abs() float64 {
+	return math.Sqrt(p.x * p.x + p.y * p.y)
+}
+
+type NamePoint struct {
+	Point
+	name string
+}
+
+func main() {
+	n := &NamePoint{
+		Point: Point{3, 4},
+		name:  "gogogo",
+	}
+	fmt.Println(n.Abs(), n.name)
+}
+```
+
+### 多重继承
+
+```go
+package main
+
+import "fmt"
+
+type Camera struct {}
+
+func (c *Camera) TakePicture() string {
+	return "拍照"
+}
+
+type Phone struct {}
+
+func (c * Camera) Call() string {
+	return "响铃"
+}
+
+type CameraPhone struct {
+	Camera
+	Phone
+}
+
+func main() {
+	cp := new(CameraPhone)
+	fmt.Println(cp.TakePicture())
+	fmt.Println(cp.Call())
+}
 ```
