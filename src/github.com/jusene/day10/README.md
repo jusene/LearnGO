@@ -361,3 +361,399 @@ func (接受者变量  接受者类型) 方法名(参数列表) (返回参数) {
 }
 ```
 
+- 接受者变量：接受者中的参数变量名在命名时，建议使用接受者类型名称首字母小写， 而不是this、self之类的命名
+- 接受者类型：接受者类型和参数类似，可以是指针类型和非指针类型
+- 方法名、参数列表、返回参数，具体格式与函数定义相同
+
+```go
+package main
+
+import "fmt"
+
+// Person 结构体
+type Person struct {
+	name string
+	age int
+}
+
+// NewPerson 构造函数
+func NewPerson(name string, age int) *Person {
+	return &Person{
+		name: name,
+		age:  age,
+	}
+}
+
+// Dream Person 的方法
+func (p Person) Dream() {
+	fmt.Printf("%s的梦想是学好Go语言\n", p.name)
+}
+
+func main() {
+	p1 := NewPerson("jusene", 27)
+	p1.Dream()
+}
+```
+方法与函数的区别， 函数不属于任何类型，方法属于特定的类型
+
+```go
+package main
+
+import "fmt"
+
+type TwoInt struct {
+	a int
+	b int
+}
+
+func (t *TwoInt) AddThem() int {
+	return t.a + t.b
+}
+
+func (t *TwoInt) AddToParam(param int) int {
+	return t.a + t.b + param
+}
+
+func (_ *TwoInt) Echo() {
+	fmt.Println("hello world")
+}
+
+func main() {
+	two := new(TwoInt)
+	two.a = 10
+	two.b = 20
+
+	fmt.Println(two.AddThem())
+	fmt.Println(two.AddToParam(30))
+	two.Echo()
+}
+```
+
+非结构体的例子
+
+```go
+package main
+
+import "fmt"
+
+type IntVector []int
+
+func (v IntVector) Sum() (s int) {
+	for _, x := range v {
+		s += x
+	}
+	return
+}
+
+func main() {
+	fmt.Println(IntVector{1, 2, 3}.Sum())
+}
+```
+
+- 值类型的接受者
+- 指针类型的接受者
+
+```go
+package main
+
+import "fmt"
+
+type People struct {
+	name string
+	age int
+}
+
+// 指针类型接受者
+func(p *People) SetAge(newAge int) {
+	p.age = newAge
+}
+
+// 值类型的接受者
+func(p People) SetAge2(newAge int) int {
+	p.age = newAge
+	return p.age
+}
+
+
+func main() {
+	per := People{"jusene", 27}
+	fmt.Println(per.age) // 27
+	per.SetAge(30)
+	fmt.Println(per.age) // 30
+
+	newAge := per.SetAge2(40)
+	fmt.Println(per.age) // 30
+	fmt.Println(newAge) // 40
+}
+```
+
+### 函数与方法的区别
+
+- 函数将变量作为参数： Function(recv);方法在变量上被调用： recv.Method()
+- 当接受者是指针时，方法可以改变接受者的值和状态，这一点函数也能实现，当参数作为指针传递，即通过应用调用
+- 接受者必须是一个显式名字，这个名字必须在方法中被使用，接受者类型必须在和方法同样在包中被声明。
+
+### 结构体匿名字段
+
+结构体允许其成员字段在声明时没有字段名而只有类型，这种没有名字的字段就称为匿名字段。
+
+```go
+package main
+
+import "fmt"
+
+type Person struct {
+	string
+	int
+}
+
+func main() {
+	p1 := Person{"jusene", 27}
+	fmt.Printf("%#v\n", p1)
+	fmt.Println(p1.string, p1.int)
+}
+```
+匿名字段默认采用类型名作为字段名，结构体要求字段名称必须唯一，因此一个结构体中同种类型的匿名字段只能有一个。
+
+### 嵌套结构体
+
+一个结构体中可以嵌套包含另一个结构体或结构体指针。
+
+```go
+package main
+
+import "fmt"
+
+type Address struct {
+	Province string
+	City string
+}
+
+type User struct {
+	Name string
+	Gender string
+	Address Address
+}
+
+func main() {
+	user1 := User{
+		Name:    "jusene",
+		Gender:  "男",
+		Address: Address{
+			Province: "浙江",
+			City: "杭州",
+		},
+	}
+
+	fmt.Printf("%#v", user1)
+}
+```
+
+### 嵌套匿名结构体
+
+```go
+package main
+
+import "fmt"
+
+type Address struct {
+	Province string
+	City string
+}
+
+type User struct {
+	Name string
+	Gender string
+	Address // 匿名结构体
+}
+
+func main() {
+	var user2 User
+	user2.Name = "JUSENE"
+	user2.Gender = "男"
+	user2.Address.Province = "浙江" // 通过匿名结构体，字段名访问
+	user2.City = "杭州" // 直接访问匿名结构体的字段名
+
+	fmt.Printf("%#v", user2)
+}
+```
+
+当访问结构体成员时会先在结构体中查找该字段，找不到再去匿名结构体中查找。
+
+### 结构体的字段名冲突
+
+嵌套结构体内部可能存在相同的字段名。这个时候为了避免歧义需要指定具体的内嵌结构体的字段。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+type Address struct {
+	Province string
+	City string
+	CreateTime time.Time
+}
+
+type Email struct {
+	Account string
+	CreateTime time.Time
+}
+
+type User struct {
+	Name string
+	Gender string
+	Address
+	Email
+}
+
+func main() {
+	var user3 User
+	user3.Name = "jusene"
+	user3.Gender = "man"
+	user3.Address.CreateTime = time.Now()
+	user3.Email.CreateTime = time.Now()
+	
+	fmt.Printf("%#v", user3)
+}
+```
+
+### 结构体的继承
+
+Go语言中使用结构体也可以实现其他编程语言中面向对象的继承。
+
+```go
+package main
+
+import "fmt"
+
+type Aniaml struct {
+	name string
+}
+
+func (a *Aniaml) move() {
+	fmt.Printf("%s动了\n", a.name)
+}
+
+type Dog struct {
+	Feet int8
+	*Aniaml // 通过嵌套匿名结构体实现继承
+}
+
+func (d *Dog) wang() {
+	fmt.Printf("%s会汪汪汪\n", d.name)
+}
+
+func main() {
+	d1 := &Dog{
+		Feet:   4,
+		Aniaml: &Aniaml{
+			name: "葫芦",
+		},
+	}
+
+	d1.move()
+	d1.wang()
+}
+```
+
+
+### 结构体与json序列化
+
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+// Student
+type Student struct {
+	ID int
+	Gender string
+	Name string
+}
+
+// Class
+type Class struct {
+	Title string
+	Students []*Student
+}
+
+func main() {
+	c := &Class{
+		Title:    "101",
+		Students: make([]*Student, 0, 200),
+	}
+
+	for i := 0; i <= 10; i++ {
+		stu := &Student{
+			ID:     i,
+			Gender: "man",
+			Name:   fmt.Sprintf("Stu%02d", i),
+		}
+		c.Students = append(c.Students, stu)
+	}
+
+	// Json 序列化：结构体 --> JSON格式的字符串
+	data, err := json.Marshal(c)
+	if err != nil {
+		fmt.Println("json marshal failed")
+		return
+	}
+	fmt.Printf("%s\n", data)
+
+	// Json 反序列化：JSON格式字符串 --> 结构体
+	str := `{"Title":"101","Students":[{"ID":0,"Gender":"男","Name":"stu00"},{"ID":1,"Gender":"男","Name":"stu01"},{"ID":2,"Gender":"男","Name":"stu02"},{"ID":3,"Gender":"男","Name":"stu03"},{"ID":4,"Gender":"男","Name":"stu04"},{"ID":5,"Gender":"男","Name":"stu05"},{"ID":6,"Gender":"男","Name":"stu06"},{"ID":7,"Gender":"男","Name":"stu07"},{"ID":8,"Gender":"男","Name":"stu08"},{"ID":9,"Gender":"男","Name":"stu09"}]}`
+	c1 := new(Class)
+	err1 := json.Unmarshal([]byte(str), c1)
+	if err1 != nil {
+		fmt.Println("json unmarshal failed!")
+		return
+	}
+	
+	fmt.Printf("%#v\n", c1)
+}
+
+### 结构体标签
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+type Student struct {
+	StuID int `json:"id"` // 通过指定tag实现json序列化该字段时的key
+	Gender string
+	name string
+}
+
+func main() {
+	s1 := Student{
+		StuID:     1,
+		Gender: "man",
+		name:   "jusene",
+	}
+
+	data, err := json.Marshal(s1)
+	if err != nil {
+		fmt.Println("json marshal failed")
+		return
+	}
+	fmt.Println(string(data)) // {"id":1,"Gender":"man"} name 小写字母开头，小写表示私有，只能在结构体中使用
+}
+```
+
+### 结构体和方法
+
+因为slice和map这两种数据类型都包含了指向底层数据的指针，因此我们在需要复制它们时要特别注意。
+
+```go
+
+```
