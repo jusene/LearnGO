@@ -797,7 +797,7 @@ func (c *Camera) TakePicture() string {
 
 type Phone struct {}
 
-func (c * Camera) Call() string {
+func (c *Camera) Call() string {
 	return "响铃"
 }
 
