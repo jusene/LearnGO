@@ -115,6 +115,45 @@ const (
 )
 ```
 
+### 通过反射获得接口值
+
+```go
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func refelectValue(x interface{}) {
+	v := reflect.ValueOf(x)
+	fmt.Printf("%T,%v\n", v, v)
+	k := v.Kind() // 获取底层的数据类型
+	switch k {
+	case reflect.Float32:
+		fmt.Printf("%T\n", v.Float())
+		ret := float32(v.Float())
+		fmt.Printf("%T, %v", ret, ret)
+	case reflect.Int32:
+		fmt.Printf("%T\n", v.Int())
+		ret := int32(v.Int())
+		fmt.Printf("%T, %v", ret, ret)
+	}
+}
+
+func main() {
+	var aa int32 = 100
+	refelectValue(aa) // 通过反射获得接口的值
+}
+```
+- Interface() 返回interface{}
+- Int() 返回int64
+- Uint() 返回uint64
+- Float() 返回float64
+- Bool() 返回bool
+- Bytes() 返回[]bytes
+- String() 返回string
+
 ### 通过反射设置变量的值
 
 ```go
@@ -189,5 +228,126 @@ func main() {
 }
 ```
 
+## 结构体反射
+
 ### 与结构体相关的方法
 
+任意值通过`reflect.TypeOf()`获取反射的对象，如果是结构体，可以通过反射值对象`reflect.Type`的`NumField()`和`Field()`方法获得结构体的详细信息。
+
+|  方法   | 说明  |
+|  ----  | ----  |
+| Field(i int) StructField | 根据索引，返回索引对应的结构体字段的信息 |
+| NumField() int | 返回结构体成员字段数量 |
+| FieldByName(name string) (StructField, bool) | 根据给定字符串返回字符串对应的结构体字段的信息 |
+| FieldByIndex(index []int) StructField | 多层成员访问时，根据[]int根据的每个结构体的字段索引，返回字段的信息 |
+| FieldByNameFunc(match func(string) bool) (StructField,bool) | 根据传入的匹配函数匹配需要的字段 |
+| NumMethod() int | 返回该类型的方法集中方法的数目 |
+| Method(int) Method | 返回该类型的方法集中方法的数目 |
+| MethodByName(string) (Method, bool) | 根据方法名返回该类型方法集中的方法 |
+
+```
+type StructField struct {
+    Name string  // 字段的名字
+    PkgPath string  // 非导出字段的包路径，对导出的为空
+    Type Type  // 字段的类型
+    Tag StructTag  // 字段的标签
+    Offset uintptr  // 字段在结构体中的字节偏移量
+    Index []int  // 用于Type.FieldByIndex时的索引切片
+    Anonymous bool  // 是否匿名字段
+}
+
+```
+
+### 结构体反射类型
+
+```go
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type student struct {
+	Name  string `json:"name"`
+	Score int `json:"score"`
+}
+
+func main()  {
+	stu1 := student{
+		Name:  "jusene",
+		Score: 80,
+	}
+
+	t := reflect.TypeOf(stu1)
+	fmt.Println(t.Name(), t.Kind()) // student struct
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		fmt.Printf("name:%s index:%d type:%v json tag:%v\n", field.Name, field.Index, field.Type, field.Tag.Get("json"))
+	}
+
+	if scoreField, ok := t.FieldByName("Score"); ok {
+		fmt.Printf("name:%s index:%d type:%v json tag:%v\n", scoreField.Name, scoreField.Index, scoreField.Type, scoreField.Tag.Get("json"))
+	}
+
+	field := t.FieldByIndex([]int{0})
+	fmt.Printf("name:%s index:%d type:%v json tag:%v\n", field.Name, field.Index, field.Type, field.Tag.Get("json"))
+}
+```
+
+```go
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type student struct {
+	Name  string `json:"name"`
+	Score int    `json:"score"`
+}
+
+func (s student) Study() string {
+	msg := "good study"
+	fmt.Println(msg)
+	return msg
+}
+
+func (s student) Sleep() string {
+	msg := "good night"
+	fmt.Println(msg)
+	return msg
+}
+
+func printInterface(x interface{}) {
+	t := reflect.TypeOf(x)
+	v := reflect.ValueOf(x)
+
+	fmt.Println(t.NumMethod())
+	fmt.Println(v.NumMethod())
+	fmt.Println(v.Method(0).Type())
+	fmt.Println(t.Method(0).Type)
+	fmt.Println(t.Method(0).Name)
+	fmt.Println(t.MethodByName("Sleep"))
+	fmt.Println(v.MethodByName("Sleep").IsNil())
+	for i := 0; i < v.NumMethod(); i ++ {
+		methodType := v.Method(i).Type()
+		fmt.Printf("method name:%s\n", t.Method(i).Name)
+		fmt.Printf("method:%s\n", methodType)
+		// 通过反射调用方法传递的参数必须是 []reflect.Value 类型
+		var args = []reflect.Value{}
+		v.Method(i).Call(args)
+		v.MethodByName("Sleep").Call(args)
+		v.MethodByName("Study").Call(args)
+	}
+}
+
+
+func main() {
+	printInterface(student{
+		Name:  "jusene",
+		Score: 27,
+	})
+}
+```

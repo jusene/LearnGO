@@ -15,6 +15,7 @@ func reflectSetValue1(x interface{}) {
 func reflectSetValue2(x interface{}) {
 	v := reflect.ValueOf(x)
 	// 放射中使用Elem()方法获取指针对应的值
+	fmt.Printf("%T\n", v)
 	if v.Elem().Kind() == reflect.Int64 {
 		v.Elem().SetInt(200)
 	}
