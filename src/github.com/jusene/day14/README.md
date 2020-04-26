@@ -171,7 +171,134 @@ func main() {
 无缓冲通道称为阻塞通道
 
 ```go
+package main
 
+import (
+	"fmt"
+)
+
+func main() {
+	// fatal error: all goroutines are asleep - deadlock!
+	ch := make(chan int)
+	ch <- 10 // 死锁
+	fmt.Println("发送成功")
+
+	value := <- ch // 无缓冲的通道只能在有人接收值得时候才能发消息，所以只能另起goroutine来接收
+	fmt.Println(value)
+}
 ```
 
+使用无缓冲通道进行通信将导致发送和接收的goroutine同步化，无缓冲通道也被称为同步通道。
 
+#### 有缓冲的通道
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	ch := make(chan int, 1)
+	fmt.Println(len(ch), cap(ch))
+	ch <- 10 // 有缓冲的通道不会死锁
+	fmt.Println(len(ch), cap(ch))
+	fmt.Println("发送成功")
+	time.Sleep(2 * time.Second)
+	value := <- ch
+	fmt.Println("接收成功", value)
+}
+```
+
+#### 单向通道
+
+在不同的任务函数中使用通道都会对其进行限制，比如限制通道在函数中只能发送或只能接收
+
+```go
+package main
+
+import "fmt"
+
+func counter(out chan <- int) {
+	for i := 0; i < 10; i++ {
+		out <- i
+	}
+	close(out)
+}
+
+func squarer(out chan <- int, in <- chan int) { // out单向通道，只能发送不能接收；in单向通道，只能接收不能发送
+	for i := range in {
+		out <- i * i
+	}
+	close(out)
+}
+
+func printer(in <- chan int) {
+	for i := range in {
+		fmt.Println(i)
+	}
+}
+
+func main() {
+	ch1 := make(chan int)
+	ch2 := make(chan int)
+	go counter(ch1)
+	go squarer(ch2, ch1)
+	printer(ch2)
+}
+```
+
+#### 通道总结
+
+| channel | nil | 非空 | 空的 | 满了 | 没满 | 
+| ----- | ----- | ----- | ----- | ----- | ----- |
+| 接收 | 阻塞 | 接收值 | 阻塞 | 接收值 | 接收值 |
+| 发送 | 阻塞 | 发送值 | 发送值 | 阻塞 | 发送值 |
+| 关闭 | panic | 关闭成功，读完数据后返回零值 | 关闭成功，返回零值 | 关闭成功，读完数据后返回零值 | 关闭成功，读完数据后返回零值 |
+
+关闭已经关闭的channel也会引发panic
+
+### goroutine池
+
+work pool，防止goroutine泄露和暴涨
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func worker(id int, jobs <- chan int, result chan <- int) {
+	for j := range jobs {
+		fmt.Printf("worker:%d start job:%d\n", id, j)
+		time.Sleep(time.Second)
+		fmt.Printf("worker:%d end job:%d\n", id, j)
+		result <- j * 2
+	}
+}
+
+func main() {
+	jobs := make(chan int, 100)
+	results := make(chan int, 100)
+
+	// 开启3个goroutine
+	for w := 1; w <= 3; w++ {
+		go worker(w, jobs, results)
+	}
+
+	// 5个任务
+	for j := 1; j <= 5; j++ {
+		jobs <- j
+	}
+	close(jobs)
+
+	// 输出结果
+	for a := 1; a <= 5; a++ {
+		<- results
+	}
+}
+```
