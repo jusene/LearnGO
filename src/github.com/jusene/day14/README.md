@@ -302,3 +302,298 @@ func main() {
 	}
 }
 ```
+
+### select多路复用
+
+select类似switch语句，每个case会对应一个通信的通道（接收或发送），select会一直等待，直到某个case的通信操作完成时。select有较多的限制，其中最大的一条限制就是每个case语句必须有一个IO操作
+
+```
+select {
+    case ch1:
+        ...
+    case ch2:
+        ...
+    default:
+        ...
+}
+```
+
+```go
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	ch := make(chan int, 1)
+	for i := 0; i < 10; i++ {
+		select {
+		case x := <- ch: // 如果chan1成功读取到数据，则进行该case处理语句
+			fmt.Println(x) 
+		case ch <- i: // 如果成功向chan2写入数据，则进行该case处理语句
+        default: // 如果上面都没成功，则进入default处理流程
+        }
+	}
+}
+```
+
+- 可以处理一个或多个channel的发送和接受操作
+- 如果多个case满足，select会随机选择一个
+- 对于没有case的select{}会一直等待，可用于阻塞main函数
+
+### 并发安全和锁
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+var x int64
+var wg sync.WaitGroup
+
+func add() {
+	for i := 0; i < 5000; i++ {
+		x = x + 1
+	}
+	wg.Done()
+}
+
+func main() {
+	wg.Add(2)
+	go add()
+	go add()
+	wg.Wait()
+	fmt.Println(x)
+}
+```
+
+以上的并发导致数据竞争，每次结果不同
+
+#### 互斥锁
+
+互斥锁是一种常用的控制共享资源访问的方法，它能够保证同时只有一个goroutine可以访问共享资源。
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+var x int64
+var wg sync.WaitGroup
+var lock sync.Mutex
+
+func add() {
+	for i := 0; i < 5000; i++ {
+		lock.Lock()
+		x = x + 1
+		lock.Unlock()
+	}
+	wg.Done()
+}
+
+func main() {
+	wg.Add(2)
+	go add()
+	go add()
+	wg.Wait()
+	fmt.Println(x)
+}
+```
+
+#### 读写互斥锁
+
+当需要并发读取一个资源不涉及资源修改的时候是没有必要加锁的，这种场景可以使用读写锁。
+
+读写锁分为：读锁和写锁，当一个goroutine获取读锁的时候，其他goroutine如果获取读锁会继续获得锁，如果获得写锁就会等待；当一个goroutine获取写锁后，其他goroutine无论是获取读锁还是写锁都会等待。
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+var (
+	x int64
+	wg sync.WaitGroup
+	lock sync.Mutex
+	rwlock sync.RWMutex
+)
+
+func write() {
+	rwlock.Lock() // 加写锁
+	time.Sleep(time.Millisecond)
+	rwlock.Unlock() // 解写锁
+	wg.Done()
+}
+
+func read() {
+	rwlock.RLock()  // 加读锁
+	time.Sleep(time.Millisecond)
+	rwlock.RUnlock() // 解读锁
+	wg.Done()
+}
+
+func main() {
+	start := time.Now()
+
+	// 写锁并发时间18.9736ms
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go write()
+	}
+
+
+	// 读锁并发时间1.0203ms
+	/*
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go read()
+	}
+	*/
+	wg.Wait()
+	end := time.Now()
+	fmt.Println(end.Sub(start))
+}
+```
+
+读写锁非常适合读多写少的场景
+
+#### sync.WaitGroup
+
+| 方法名 | 功能 |
+| ----- | ----- |
+| (wg *WaitGroup) Add(delta int) | 计数器+delta |
+| (wg *WaitGroup) Done() | 计时器-1 |
+| (wg *WaitGroup) Wait() | 阻塞直到计数器变为0 |
+
+#### sync.Once
+
+确保某些操作在高并发的场景下只执行一次，例如只加载一次配置文件、只关闭一次通道等。
+
+```
+func (o *once) Do(f func()) {}
+```
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+var once sync.Once
+var wg sync.WaitGroup
+
+func main() {
+
+	for i, v := range make([]string, 10) {
+		//once.Do(onces) // once只会被执行一次
+		fmt.Println("count:", v, "---", i)
+	}
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			once.Do(onced)
+			fmt.Println("213")
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+func onces() {
+	fmt.Println("onces")
+}
+func onced() {
+	fmt.Println("onced")
+}
+```
+
+并发安全的单例模式
+
+```go
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+type singleton struct {
+	name string
+	age int
+}
+
+var instance *singleton
+var once sync.Once
+var wg sync.WaitGroup
+var lock sync.Mutex
+
+func GetInstance() *singleton {
+	defer wg.Done()
+	once.Do(func() {
+		fmt.Println("load instance...")
+		instance = &singleton{
+			name: "jusene",
+			age: 27,
+		}
+		fmt.Println(instance.name, instance.age)
+	})
+	lock.Lock()
+	fmt.Println("*** 过了一年")
+	time.Sleep(time.Second)
+	instance.age += 1
+	lock.Unlock()
+	return instance
+}
+
+func main() {
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go GetInstance()
+	}
+	wg.Wait()
+
+	fmt.Println(instance.name, instance.age)
+}
+```
+
+#### sync.Map
+
+Go语言中内置的map不是并发安全的，需要使用sync.Map
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+	"sync"
+)
+
+var m = sync.Map{}
+
+func main() {
+	wg := sync.WaitGroup{}
+	for i := 0; i < 20; i ++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			key := strconv.Itoa(n)
+			m.Store(key, n)
+			value, _ := m.LoadOrStore(key, 100)
+			fmt.Printf("k=%v, v=%v\n", key, value)
+		}(i)
+	}
+	wg.Wait()
+}
+```
