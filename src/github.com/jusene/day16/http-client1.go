@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	resp, err := http.Get("https://www.baidu.com")
+	resp, err := http.Get("http://127.0.0.1:9090")
 	if err != nil {
 		fmt.Println("get failed, err:", err)
 		return
