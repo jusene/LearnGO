@@ -10,5 +10,5 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(resp.Header["Cache-Control"])
+	fmt.Println(resp.Header["Server"][0])
 }

@@ -187,3 +187,196 @@ type Client struct {
     Jar CookieJar
 }
 ```
+
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+)
+
+func main() {
+	client := &http.Client{}
+
+	req, err := http.NewRequest("GET", "http://www.baidu.com", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	req.Header.Add("User-Agent", "test agent")
+	resp, _ := client.Do(req)
+	defer resp.Body.Close()
+	d, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println(string(d))
+}
+```
+
+自定义transport
+
+```go
+type Transport struct {
+    // Proxy 指定用于针对特定请求返回代理的函数
+    // 如果该函数返回一个非空的错误，请求将终止并返回该错误
+    // 如果Proxy为空或者返回一个空的URL指针，将不使用代理
+    Proxy func(*Request) (*url.URL, error)
+    // Dial 指定用于创建TCP连接的dial函数
+    // 如果Dial为空，将默认使用net.Dial()函数
+    Dial func(net, addr string) (c net.Conn, err error)
+    // TLSClientConfig指定用于tls.Client的TLS配置
+    // 如果为空则使用默认配置
+    TLSConfig *tls.Config
+    DisableKeepAlives bool
+    DisableCompression bool
+    // 如果MaxIdleConnsPerHost为非零值，它用于控制每个host所需要保持的最大空闲连接数
+    // 如果该值为空，则使用DefaultMaxIdleConnPerHost
+    MaxIdleConnsPerHost int
+}
+```
+
+### HTTP服务端
+
+#### GET
+
+```go
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+)
+
+func sayHello(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(os.Stdout, r.RemoteAddr)
+	fmt.Fprintln(w, "hello jusene")
+}
+
+func main() {
+	http.HandleFunc("/", sayHello)
+	err := http.ListenAndServe(":9090", nil)
+	if err != nil {
+		fmt.Printf("http server failed, err%v\n", err)
+		return
+	}
+}
+```
+
+#### GET Param
+
+```go
+package main
+
+import (
+	"fmt"
+	"net/http"
+)
+
+func getHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	data := r.URL.Query()
+	fmt.Println(data.Get("name"))
+	fmt.Println(data.Get("age"))
+	fmt.Println(data.Get("job"))
+	ans := `{"status": "ok"}`
+	w.Write([]byte(ans))
+}
+
+func main() {
+	http.HandleFunc("/", getHandler)
+	err := http.ListenAndServe(":9090", nil)
+	if err != nil {
+		fmt.Printf("http server failed, err%v\n", err)
+		return
+	}
+}
+```
+
+#### POST
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+)
+
+func postHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	// form
+	r.ParseForm()
+	fmt.Println(r.PostForm)
+	fmt.Println(r.PostForm.Get("name"), r.PostForm.Get("age"))
+	// json
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Println("read request.Body failed")
+	}
+	type info struct {
+		Name string
+		Age int
+	}
+	person := new(info)
+	err1 := json.Unmarshal(b, person)
+	fmt.Println(string(b))
+	if err1 != nil {
+		fmt.Println(err1)
+	}
+	fmt.Println(1111, person.Name, person.Age)
+	answ := `{"status": "ok"}`
+	w.Write([]byte(answ))
+}
+
+func main() {
+	http.HandleFunc("/", postHandler)
+	err := http.ListenAndServe(":9090", nil)
+	if err != nil {
+		fmt.Printf("http server failed, err%v\n", err)
+		return
+	}
+}
+```
+
+更多控制服务器端的行为
+```
+s := &http.Server{
+    Addr: ":8080",
+    Handler: myHandler,
+    ReadTimeout: 10 * time.Second,
+    WriteTimeout: 10 * time.Second,
+    MaxHeaderBytes: 1 << 20,
+}
+
+log.Fatal(s.ListenAndServe())
+```
+
+#### HTTPS
+
+```
+func ListenAndServeTLS(addr string, certFile string, keyFile string, handler Handler) error
+```
+
+```
+http.HandleFunc("/bar", func(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))	
+})
+
+log.Fatal(http.ListenAndServeTLS(":10443", "cert.pem", "key.pem", nil))
+```
+
+```
+ss := &http.Server{
+    Addr: ":10443",
+    Handler: myHandler,
+    ReadTimeout: 10 * time.Second,
+    WriteTimeout: 10 * time.Second,
+    MaxHeaderBytes: 1 << 20,
+}
+
+log.Fatal(ss.ListenAndServeTLS("cert.pem", "key.pem"))
+```
+
