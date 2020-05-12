@@ -380,3 +380,42 @@ ss := &http.Server{
 log.Fatal(ss.ListenAndServeTLS("cert.pem", "key.pem"))
 ```
 
+#### Cookie
+
+```
+http.SetCookie(w ResponseWriter, cookie *Cookie)
+```
+
+```
+type Cookie struct {
+    Name string
+    Value string
+    Path string
+    Domain string
+    Expires time.Time
+    RawExpires string
+
+    // MaxAge=0 意味着没有指定Max-Age值
+    // MaxAge<0 意味着现在就删除Cookie，等价于Max-Age=0
+    // MaxAge>0 意味着Max-Age属性存在并以秒为单位存在
+
+    MaxAge int
+    Secure bool
+    HttpOnly bool
+    Raw string
+    Unparsed []string // 未解析attribute-value属性值对
+}
+```
+
+```
+expiration := time.Time()
+expiration = expiration.AddDate(1, 0, 0)
+cookie := http.Cookie{Name: "username", Value: "test", Expires: expiration}
+http.SetCookie(w, &cookie)
+```
+
+读取Cookie
+```
+cookie, _ := r.Cookie("username")
+fmt.Fprint(w, cookie)
+```
