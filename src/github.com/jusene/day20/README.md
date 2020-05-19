@@ -392,3 +392,41 @@ type Ring struct {
 }
 ```
 
+```go
+package main
+
+import (
+	ring2 "container/ring"
+	"fmt"
+)
+
+func main() {
+	ring := ring2.New(3)
+
+	for i := 1; i <= 3; i++ {
+		ring.Value = i
+		ring = ring.Next()
+	}
+
+	// 计算1 + 2 + 3
+	s := 0
+	ring.Do(func(p interface{}) {
+		s += p.(int)
+	})
+
+	fmt.Println(s)
+}
+```
+
+```
+type Ring
+    func New(n int) *Ring // 初始化环
+    func (r *Ring) Do(f func(interface{})) // 循环环进行操作
+    func (r *Ring) Len() int // 环长度
+    func (r *Ring) Link(s *Ring) *Ring // 连接两个环
+    func (r *Ring) Move(n int) *Ring // 指针从当前元素开始向后移动或者向前(n可以为负数)
+    func (r *Ring) Next() *Ring // 当前元素的下一个元素
+    func (r *Ring) Prev() *Ring // 当前元素的上一个元素
+    func (r *Ring) Unlink(n int) *Ring // 从当前元素开始，删除n个元素
+```
+
