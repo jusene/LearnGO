@@ -268,3 +268,136 @@ func main() {
 
 - 写入函数
 
+```go
+package main
+
+import "os"
+
+func main() {
+	file, err := os.OpenFile("test", os.O_WRONLY | os.O_TRUNC | os.O_CREATE, 0666)
+	if err != nil {
+		panic(err)
+	}
+
+	defer file.Close()
+
+	file.Write([]byte("写入字节。\r\n"))
+
+	file.WriteString("写入字符\r\n")	
+}
+```
+
+- 权限控制
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+)
+
+func main() {
+
+	file, err := os.OpenFile("test", os.O_WRONLY | os.O_CREATE, 0666)
+	if err != nil && os.IsNotExist(err){
+		fmt.Println("文件不存在")
+	} else if os.IsPermission(err) {
+		fmt.Println("文件没有写入权限")
+	} else {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	file, err = os.OpenFile("test", os.O_RDONLY | os.O_CREATE, 0666)
+	if err != nil && os.IsNotExist(err){
+		fmt.Println("文件不存在")
+	} else if os.IsPermission(err) {
+		fmt.Println("文件没有写入权限")
+	} else {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+}
+```
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"time"
+)
+
+func main() {
+	err := os.Chmod("test", 0777)
+	if err != nil {
+		log.Println(err)
+	}
+
+	// 改变文件所有者
+	err = os.Chown("test", os.Getuid(), os.Getgid())
+	if err != nil {
+		log.Println(err)
+	}
+
+	// 查看文件信息
+	fileInfo, err := os.Stat("test")
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Fatal("文件不存在")
+		}
+		log.Fatal(err)
+	}
+
+	fmt.Println(fileInfo.ModTime())
+
+	// 改变时间戳
+	twoDayFromNow := time.Now().Add(48 * time.Hour)
+	lastAccessTime := twoDayFromNow
+	lastModifyTime := twoDayFromNow
+	err = os.Chtimes("test", lastAccessTime, lastModifyTime)
+	if err != nil {
+		log.Println(err)
+	}
+
+	fmt.Println(fileInfo.ModTime())
+}
+```
+
+- 文件链接
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+	// 创建一个硬链接
+	err := os.Link("test", "oldtest" )
+	if err != nil {
+		panic(err)
+	}
+	
+	// 创建一个软链接
+	err = os.Symlink("test", "softtest")
+	if err != nil {
+		panic(err)
+	}
+	
+	// Lstat返回文件信息，如果文件是软链接，返回软链接的信息
+	softinfo, err := os.Lstat("softtest")
+	fmt.Printf("%v", softinfo)
+	
+	// 改变软链接的拥有者不会影响原始文件
+	err = os.Lchown("softtest", os.Getuid(), os.Getgid())
+}
+```
