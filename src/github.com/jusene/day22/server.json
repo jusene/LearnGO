@@ -1,0 +1,4 @@
+{"servers": [
+  {"serverName": "Local_WEB", "serverIP": "192.168.66.100"},
+  {"serverName": "Local_DB", "serverIP": "192.168.66.101"}
+]}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<servers version="1">
+    <server>
+        <serverName>Local_web</serverName>
+        <serverIP>192.168.66.100</serverIP>
+    </server>
+    <server>
+        <serverName>Local_DB</serverName>
+        <serverIP>192.168.66.101</serverIP>
+    </server>
+</servers>
