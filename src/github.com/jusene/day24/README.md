@@ -140,3 +140,74 @@ func main() {
 	fmt.Println(string(b1))
 }
 ```
+
+### 不修改原结构体忽略空值字段
+
+需要序列化User，但是不想把密码也序列化，又不想修改User结构体，这个时候我们就可以使用创建另外一个结构体PublicUser匿名嵌套原User，同时指定Password字段为匿名结构体指针类型，并添加omitemptytag，
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+)
+
+type User struct {
+	Name string `json:"name"`
+	Password string `json:"password"`
+}
+
+type PublicUser struct {
+	*User //匿名嵌套
+	Password *struct{} `json:"password,omitempty"`
+}
+
+func main() {
+	u1 := User{
+		Name:     "jusene",
+		Password: "1234567",
+	}
+
+	b, err := json.Marshal(PublicUser{
+		User:     &u1,
+	})
+	if err != nil {
+		log.Fatalf("json.Marshal u1 failed, err:%v\n", err)
+	}
+
+	fmt.Printf("str:%s\n", b)
+}
+```
+
+### 优雅处理字符串格式的数字
+
+前端在传递来的json数据中可能会使用字符串类型的数字，这个时候可以在结构体tag中添加string来告诉json包从字符串中解析相应字段的数据
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+)
+
+type Card struct {
+	ID int64 `json:"id,string"`  // 添加string tag
+	Score float64 `json:"score,string"`
+}
+
+func main() {
+	jsonStr1 := `{"id": "123456", "score": "98.5"}`
+	var c1 Card
+	if err := json.Unmarshal([]byte(jsonStr1), &c1); err != nil {
+		log.Fatalf("json.Unmarsha jsonStr1 failed, err:%v\n", err)
+	}
+	fmt.Printf("c1:%#v\n", c1)
+}
+```
+
+### 整数变浮点数
+
