@@ -196,7 +196,202 @@ viper.GetBool("verbose") // true
 
 ### 使用环境变量
 
+viper支持环境变量，有五种方法与ENV协作：
+- AutomaticEnv()
+- BindEnv(string...) : error
+- SetEnvPrefix(string)
+- SetEnvKeyReplacer(string) *strings.Replacer
+- AllowEmptyEnv(bool)
 
+Viper提供了一种机制来确保ENV变量是惟一的，通过`SetEnvPrefix`,可以告诉Viper在读取环境变量时使用前缀。`BindEnv`和`AutomaticEnv`都将使用这个前缀。
 
+`BindEnv`使用一个或两个参数，第一个参数是键的名称，第二个是环境变量的名称。环境变量区分大小写，如果没有提供ENV变量名，那么Viper将自动假设ENV变量与以下格式匹配：前缀+"_"+键名全部大小写。当你显式提供ENV变量名（第二个参数），不会自动添加前缀。
 
+在使用ENV变量时，需要注意的一件重要事情是，每次访问该值得时候都将读取它，Viper在调用`BindEnv`时不固定该值。
+
+`AutomaricEnv`与`SetEnvPrefix`结合使用时，调用时，Viper会在发出`viper.Get`请求时随时检查环境变量，它将应用以下规则，将检查环境变量的名称是否与键匹配（如果设置了EnvPrefix）。
+
+`SetEnvKeyReplacer`允许你使用`strings.Replacer`对象在一定程度上重写ENV键。如果你希望在`Get()`调用使用`-`或者其他符号，但是环境变量里使用`_`分隔符，那么这个功能非常有用，或者可以使用带有`NewWithOptions`工厂函数`EnvKeyReplacer`,与SetEnvKeyReplacer不同，它接受`StringReplacer`函数。
+
+默认情况下，空环境变量被认定是未设置的，并将返回到下一个配置源，若要将空环境变量视为已设置，使用`AllowEmptyEnv`方法。
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/spf13/viper"
+	"os"
+)
+
+func main() {
+	viper.SetEnvPrefix("spf")
+	viper.BindEnv("id")
+	viper.BindEnv("name", "name")
+
+	os.Setenv("SPF_ID", "12")
+	os.Setenv("NAME", "JUSENE")
+	fmt.Println(viper.Get("id"))
+	fmt.Println(viper.Get("name"))
+}
+```
+
+### 使用Flags
+
+```go
+package main
+
+import (
+	"flag"
+	"fmt"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+)
+
+func main() {
+	flag.Int("flagname", 1234, "help message for flagname")
+
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+	viper.BindPFlags(pflag.CommandLine)
+
+	i := viper.GetInt("flagname") // 从 viper 检索值
+	fmt.Println(i)
+}
+```
+
+### 远程Key/Value存储支持
+
+在viper中启用远程支持，需要在代码中匿名导入`viper/remote`。
+
+```
+import _ "github.com/spf13/viper/remote"
+```
+
+viper将读取从Key/Value存储中路径检索到的配置字符串，viper加载配置的优先级：磁盘上的配置文件>命令行标志位>环境变量>远程key/value>默认值。
+
+viper使用crypt从K/V存储中检索配置，这意味着如果你有正确的gpg密匙，你可以将配置值加密存储并自动解密。加密是可选的。
+
+crypt有一个命令行助手，你可以使用它将配置放入K/V存储中。crypt默认使用在http://127.0.0.1:4001的etcd
+```
+go get github.com/bketelsen/crypt/bin/crypt
+crypt set -plaintext /config/hugo.json /Users/hugo/settings/config.json
+```
+
+```
+crypt get -plaintext /config/hugo.json
+```
+
+#### 远程key/value存储示例-未加密
+
+- etcd
+```
+viper.AddRemoteProvider("etcd", "http://127.0.0.1:4100", "/config/hugo.json")
+viper.SetConfigType("json") // 因为在字节流中没有文件扩展名，所以这里需要设置下类型。支持的扩展名有 "json", "toml", "yaml", "yml", "properties", "props", "prop", "env", "dotenv"
+err := viper.ReadRemoteConfig()
+```
+
+- consul
+consul key/value存储中设置一个key保存所需要的JSON值
+```json
+{
+    "port": 8080,
+    "hostname": "jusene.com",
+}
+```
+
+```
+viper.AddRemoteProvider("consul", "localhost:8500", "MY_CONSUL_KEY")
+viper.SetConfigType("json")
+err := viper.ReadRemoteConfig()
+
+fmt.Println(viper.Get("port"))
+fmt.Println(viper.Get("hostname"))
+```
+
+- Firestore
+```
+viper.AddRemoteProvider("firestore", "google-cloud-project-id", "collection/document")
+viper.SetConfigType("json") // 配置的格式: "json", "toml", "yaml", "yml"
+err := viper.ReadRemoteConfig()
+```
+
+#### 远程key/value存储示例-加密
+
+```
+viper.AddSecureRemoteProvider("etcd", "http://127.0.0.1:4100", "/config/hugo.json", "/etc/secrets/mykeyring.gpg")
+viper.SetConfigType("json") // 因为在字节流中没有文件扩展名，所以这里需要设置下类型。支持的扩展名有 "json", "toml", "yaml", "yml", "properties", "props", "prop", "env", "dotenv"
+err := viper.ReadRemoteConfig()
+```
+
+#### 监控etcd中的更改-未加密
+
+```go
+package main
+
+import (
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"time"
+)
+
+type conf struct {
+	host string
+	port int
+}
+
+func main() {
+	var runtime_viper = viper.New()
+
+	runtime_viper.AddRemoteProvider("etcd", "http://127.0.0.1:4001", "/config/hugo.yml")
+	runtime_viper.SetConfigType("yaml") // 因为在字节流中没有文件扩展名，所以这里需要设置下类型。支持的扩展名有 "json", "toml", "yaml", "yml", "properties", "props", "prop", "env", "dotenv"
+
+	// 第一次从远程读取配置
+	err := runtime_viper.ReadRemoteConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	runtime_conf := new(conf)
+
+	// 反序列化
+	runtime_viper.Unmarshal(&runtime_conf)
+
+	// 开启一个单独goroutine一直监控远程的变更
+	go func() {
+		for {
+			time.Sleep(time.Second * 5)
+
+			// 目前只支持了etcd支持
+			err := runtime_viper.WatchRemoteConfig()
+			if err != nil {
+				log.Errorf("unable to read remote config: %v", err)
+				continue
+			}
+
+			// 将新配置反序列化到我们运行时的配置结构体中。你还可以借助channel实现一个通知系统更改的信号
+			runtime_viper.Unmarshal(&runtime_conf)
+		}
+	}()
+}
+```
+
+### 从viper获取值
+
+根据类型获取值，存在以下功能和方法:
+- Get(key string): interface{}
+- GetBool(key string): bool
+- GetFloat64(key string): float64
+- GetInt(key string): int
+- GetIntSlice(key string): []int
+- GetString(key string): string
+- GetStringMap(key string): map[string]interface{}
+- GetStringMapString(key string): map[string]string
+- GetStringSlice(key string): []string
+- GetTime(key string): time.Time
+- GetDuration(key string): time.Duration
+- IsSet(key string): bool
+- AllSettings(): map[string]interface{}
+
+需要认识到的一件重要事情是，每一个Get方法在找不到值的时候都会返回零值。为了检查给定的键是否存在，提供了IsSet()方法。
 
