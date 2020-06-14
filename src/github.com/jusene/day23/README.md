@@ -96,5 +96,5 @@ func TestPrime(t *testing.T) {
 - Fatal: 相当于Log + FailNow，会中断后续测试
 - Fatalf: 相当于Logf + FailNow，同上
 
-
+ 
 
