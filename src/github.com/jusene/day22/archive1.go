@@ -2,8 +2,8 @@ package main
 
 import (
 	"archive/zip"
-	log "github.com/sirupsen/logrus"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 )
