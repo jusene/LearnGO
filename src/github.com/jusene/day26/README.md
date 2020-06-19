@@ -26,7 +26,7 @@ func main() {
 
 ### RESTful API
 
-#### Parameters in path
+#### 路径参数
 
 ```go
 package main
@@ -74,7 +74,7 @@ func main() {
 }
 ```
 
-#### Querystring parameters
+#### 参数
 
 ```go
 package main
@@ -98,7 +98,7 @@ func main() {
 }
 ```
 
-#### Multipart/Urlencoded Form
+#### 表单
 
 ```go
 package main
@@ -147,4 +147,192 @@ func main() {
 
 	router.Run()
 }
+```
+
+#### Map as querystring
+
+```go
+package main
+
+import (
+	"github.com/gin-gonic/gin"
+)
+
+func main() {
+	router := gin.Default()
+
+	// curl -X POST -d "names[c]=jusne" http://127.0.0.1:8080/post?ids[a]=123&ids[b]=456  {"ids":{"a":"123","b":"456"},"name":{"c":"jusene"}}
+	router.POST("/post", func(context *gin.Context) {
+		ids := context.QueryMap("ids")
+		name := context.PostFormMap("names")
+
+		context.JSON(200, gin.H{
+			"ids": ids,
+			"name": name,
+		})
+	})
+
+	router.Run()
+}
+```
+
+#### 上传文件
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"log"
+	"net/http"
+)
+
+func main() {
+	router := gin.Default()
+	// set a lower memory limit for multipart forms(default is 32 MiB)
+	router.MaxMultipartMemory = 8 << 20 // 8MiB
+        // curl -X POST http://127.0.0.1:8080/upload -F "upload[]=@gin1.go" -H "Content-Typ e: multipart/form-data"
+	router.POST("/upload", func(context *gin.Context) {
+		// Multipart form
+		form, _ := context.MultipartForm()
+		files := form.File["upload[]"]
+
+		for _, file := range files {
+			log.Println(file.Filename)
+			context.SaveUploadedFile(file, "./test.go")
+		}
+		context.String(http.StatusOK, fmt.Sprintf("%d files uploads!", len(files)))
+	})
+	router.Run()
+}
+```
+
+#### 分组路由
+
+```go
+package main
+
+import "github.com/gin-gonic/gin"
+
+func main() {
+	router := gin.Default()
+
+	// GROUP v1
+	v1 := router.Group("/api/v1")
+	{
+        // curl http://127.0.0.1:8080/api/v1/get GET
+		v1.GET("/get", func(context *gin.Context) {
+			context.String(200, "GET")
+		})
+        // curl -X POST http://127.0.0.1:8080/api/v1/post POST
+		v1.POST("/post", func(context *gin.Context) {
+			context.String(200, "POST")
+		})
+	}
+	router.Run()
+}
+```
+
+### 修改默认中间件
+
+写入日志文件
+```go
+package main
+
+import (
+	"github.com/gin-gonic/gin"
+	"io"
+	"os"
+)
+
+func main() {
+	gin.DisableConsoleColor()
+
+	f, _ := os.Create("gin.log")
+	gin.DefaultWriter = io.MultiWriter(f)
+	
+	router := gin.Default()
+	router.GET("/ping", func(c *gin.Context) {
+		c.String(200, "pong")
+	})
+
+	router.Run(":8080")
+}
+```
+
+改变日志格式
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"time"
+)
+
+func main() {
+	router := gin.New()
+
+	router.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		// your custom format
+		return fmt.Sprintf("%s - [%s] \"%s %s %s %d %s \"%s\" %s\"\n",
+			param.ClientIP,
+			param.TimeStamp.Format(time.RFC1123),
+			param.Method,
+			param.Path,
+			param.Request.Proto,
+			param.StatusCode,
+			param.Latency,
+			param.Request.UserAgent(),
+			param.ErrorMessage,
+		)
+	}))
+	router.Use(gin.Recovery())
+
+	router.GET("/ping", func(c *gin.Context) {
+		c.String(200, "pong")
+	})
+
+	router.Run(":8080")
+}
+```
+
+修改相应头信息
+```go
+package main
+
+import "github.com/gin-gonic/gin"
+
+func main() {
+	router := gin.New()
+
+	router.Use(Cors)
+	router.GET("/ping", func(c *gin.Context) {
+		c.String(200, "pong")
+	})
+	router.Run()
+}
+
+func Cors(ctx *gin.Context) {
+	ctx.Header("BY-X-SERVER", "GIN")
+	ctx.Next()
+}
+
+curl  -vv http://127.0.0.1:8080/ping
+*   Trying 127.0.0.1...
+* TCP_NODELAY set
+* Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)
+> GET /ping HTTP/1.1
+> Host: 127.0.0.1:8080
+> User-Agent: curl/7.55.1
+> Accept: */*
+>
+< HTTP/1.1 200 OK
+< By-X-Server: GIN
+< Content-Type: text/plain; charset=utf-8
+< Date: Fri, 19 Jun 2020 15:35:37 GMT
+< Content-Length: 4
+<
+pong* Connection #0 to host 127.0.0.1 left intact
 ```
