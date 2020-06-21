@@ -1086,3 +1086,121 @@ func main() {
 	r.Run()
 }
 ```
+
+### 通常中间件
+
+```go
+package main
+
+import (
+	"github.com/gin-gonic/gin"
+	"log"
+	"time"
+)
+
+func Logger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		t := time.Now()
+
+		// Set example variable
+		c.Set("example", "12345")
+
+		// before request
+
+		c.Next()
+
+		// after request
+		latency := time.Since(t)
+		log.Print(latency)
+
+		// access the status we are sending
+		status := c.Writer.Status()
+		log.Println(status)
+	}
+}
+
+func main() {
+	r := gin.New()
+	r.Use(Logger())
+
+	r.GET("/test", func(c *gin.Context) {
+		example := c.MustGet("example").(string)
+
+		// it would print: "12345"
+		log.Println(example)
+	})
+
+	// Listen and serve on 0.0.0.0:8080
+	r.Run(":8080")
+}
+```
+
+### basic auth 中间件
+
+```go
+package main
+
+import (
+	"github.com/gin-gonic/gin"
+	"net/http"
+)
+
+var secrets = gin.H{
+	"foo": gin.H{"email": "foo@bar.com", "phone": "123433"},
+}
+
+func main() {
+	r := gin.Default()
+
+	authorizd := r.Group("/admin", gin.BasicAuth(gin.Accounts{
+		"foo": "bar",
+	}))
+
+	authorizd.GET("/secrets", func(context *gin.Context) {
+		user := context.MustGet(gin.AuthUserKey).(string)
+		if secret, ok := secrets[user]; ok {
+			context.JSON(http.StatusOK, gin.H{"user": user, "secret": secret})
+		} else {
+			context.JSON(http.StatusOK, gin.H{"user": user, "secret": "NO SECRET"})
+		}
+	})
+
+	r.Run()
+}
+```
+
+### 中间件内goroutines
+
+```go
+package main
+
+import (
+	"github.com/gin-gonic/gin"
+	"log"
+	"time"
+)
+
+func main() {
+	r := gin.Default()
+
+	r.GET("/long_async", func(context *gin.Context) {
+		cCp := context.Copy()
+		go func() {
+			time.Sleep(5 * time.Second)
+
+			log.Println("Done! "+ cCp.Request.URL.Path)
+		}()
+	})
+
+	r.GET("/long_sync", func(context *gin.Context) {
+		time.Sleep(5 * time.Second)
+
+		log.Println("Done! "+ context.Request.URL.Path)
+	})
+
+	r.Run()
+}
+```
+
+### gin中启动多服务
+
