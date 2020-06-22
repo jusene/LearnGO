@@ -15,22 +15,39 @@ import (
 // @contact.name API Support
 // @contact.url http://www.swagger.io/terms
 // @contact.email support@swagger.io
-
+// @schemes http https
+// @securityDefinitions.apiKey ApiKeyAuth
+// @in header
+// @name Authorization
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @BasePath /v1
 func main() {
+	gin.SetMode("release")
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
-	url := ginSwagger.URL("http://127.0.0.1:8080/swagger/doc.json")
+	r.Use(Cors())
+	//url := ginSwagger.URL("http://127.0.0.1:8080/swagger/doc.json")
 	v1 := r.Group("/v1")
 	{
 		v1.GET("/get/:name", controllers.GetPathParam)
 		v1.GET("/get", controllers.Get)
+
+		v1.POST("/post/:name", controllers.PostPathParam)
+		v1.POST("/post", controllers.Post)
+		v1.POST("/postheader", controllers.PostHeader)
 	}
 
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	r.Run()
+}
+
+func Cors() gin.HandlerFunc {
+	return func(context *gin.Context) {
+		context.Header("Access-Control-Allow-Origin", "*")
+		context.Header("Server", "GIN")
+		context.Next()
+	}
 }
