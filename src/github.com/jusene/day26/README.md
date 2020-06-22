@@ -1204,3 +1204,301 @@ func main() {
 
 ### gin中启动多服务
 
+```go
+package main
+
+import (
+	"github.com/gin-gonic/gin"
+	"golang.org/x/sync/errgroup"
+	"log"
+	"net/http"
+	"time"
+)
+
+var (
+	g errgroup.Group
+)
+
+func router1() http.Handler {
+	e := gin.New()
+	e.Use(gin.Recovery())
+	e.GET("/", func(context *gin.Context) {
+		context.JSON(http.StatusOK, gin.H{
+			"code": http.StatusOK,
+			"msg":  "Welcome server 1",
+		})
+	})
+	return e
+}
+
+func router2() http.Handler {
+	e := gin.New()
+	e.Use(gin.Recovery())
+	e.GET("/", func(context *gin.Context) {
+		context.JSON(http.StatusOK, gin.H{
+			"code": http.StatusOK,
+			"msg":  "Welcome server 2",
+		})
+	})
+	return e
+}
+
+func main() {
+	server1 := &http.Server{
+		Addr:         ":8080",
+		Handler:      router1(),
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	server2 := &http.Server{
+		Addr:         ":8081",
+		Handler:      router2(),
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	g.Go(func() error {
+		err := server1.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+		return err
+	})
+
+	g.Go(func() error {
+		err := server2.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+		return err
+	})
+
+	if err := g.Wait(); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+### 正常关闭和重启
+
+```go
+package main
+
+import (
+	"context"
+	"github.com/gin-gonic/gin"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+)
+
+func main() {
+	r := gin.Default()
+	r.GET("/", func(context *gin.Context) {
+		time.Sleep(5 * time.Second)
+		context.String(http.StatusOK, "Welcome gin server")
+	})
+
+	srv := &http.Server{
+		Addr: ":8080",
+		Handler: r,
+	}
+
+	// Initializing the server in a goroutine
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+
+	// 等待信号
+	quit := make(chan os.Signal)
+	// kill (no param) default send syscall.SIGTERM
+	// kill -2 syscall.SIGINI
+	// kill -9 syscall.SIGKILL but can't be catch, so don't need add it
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<- quit
+	log.Println("shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+	log.Println("Server exiting")
+}
+```
+
+### 构建包含模板的二进制文件
+
+```go
+package main
+
+import (
+	"fmt"
+	"html/template"
+	"io/ioutil"
+	"net/http"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+func main() {
+	r := gin.New()
+	t, err := loadTemplate()
+	if err != nil {
+		panic(err)
+	}
+	r.SetHTMLTemplate(t)
+	r.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "/html/index.tmpl", gin.H{
+			"Foo": "World",
+		})
+	})
+	r.GET("/bar", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "/html/bar.tmpl", gin.H{
+			"Bar": "World",
+		})
+	})
+	r.Run(":8080")
+}
+
+func loadTemplate() (*template.Template, error) {
+	t := template.New("")
+	for name, file := range Assets.Files {
+		fmt.Println(name, file)
+		if file.IsDir() || !strings.HasSuffix(name, ".tmpl") {
+			continue
+		}
+		h, err := ioutil.ReadAll(file)
+		if err != nil {
+			return nil, err
+		}
+		t, err = t.New(name).Parse(string(h))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return t, nil
+}
+```
+```bash
+go-assets-builder.exe .\html -o assets.go
+```
+```go
+package main
+
+import (
+	"time"
+
+	"github.com/jessevdk/go-assets"
+)
+
+var _Assetsbfa8d115ce0617d89507412d5393a462f8e9b003 = "<!doctype html>\r\n<body>\r\n  <p>Can you see this? → {{.Bar}}</p>\r\n</body>"
+var _Assets3737a75b5254ed1f6d588b40a3449721f9ea86c2 = "<!doctype html>\r\n<body>\r\n  <p>Hello, {{.Foo}}</p>\r\n</body>"
+
+// Assets returns go-assets FileSystem
+var Assets = assets.NewFileSystem(map[string][]string{"/": []string{".\\html"}, "/html": []string{"bar.tmpl", "index.tmpl"}}, map[string]*assets.File{
+	"/": &assets.File{
+		Path:     "/",
+		FileMode: 0x800001ff,
+		Mtime:    time.Unix(1592791609, 1592791609649929800),
+		Data:     nil,
+	}, "/html": &assets.File{
+		Path:     "/html",
+		FileMode: 0x800001ff,
+		Mtime:    time.Unix(1592791669, 1592791669877880000),
+		Data:     nil,
+	}, "/html/bar.tmpl": &assets.File{
+		Path:     "/html/bar.tmpl",
+		FileMode: 0x1b6,
+		Mtime:    time.Unix(1592791669, 1592791669876892100),
+		Data:     []byte(_Assetsbfa8d115ce0617d89507412d5393a462f8e9b003),
+	}, "/html/index.tmpl": &assets.File{
+		Path:     "/html/index.tmpl",
+		FileMode: 0x1b6,
+		Mtime:    time.Unix(1592791641, 1592791641333471000),
+		Data:     []byte(_Assets3737a75b5254ed1f6d588b40a3449721f9ea86c2),
+	}}, "")
+```
+
+### http2.0 server push
+
+```go
+package main
+
+import (
+	"html/template"
+	"log"
+
+	"github.com/gin-gonic/gin"
+)
+
+var html = template.Must(template.New("https").Parse(`
+<html>
+<head>
+  <title>Https Test</title>
+  <script src="/assets/app.js"></script>
+</head>
+<body>
+  <h1 style="color:red;">Welcome, Ginner!</h1>
+</body>
+</html>
+`))
+
+func main() {
+	r := gin.Default()
+	r.Static("/assets", "./assets")
+	r.SetHTMLTemplate(html)
+
+	r.GET("/", func(c *gin.Context) {
+		if pusher := c.Writer.Pusher(); pusher != nil {
+			// use pusher.Push() to do server push
+			if err := pusher.Push("/assets/app.js", nil); err != nil {
+				log.Printf("Failed to push: %v", err)
+			}
+		}
+		c.HTML(200, "https", gin.H{
+			"status": "success",
+		})
+	})
+
+	// Listen and Server in https://127.0.0.1:8080
+	r.RunTLS(":8080", "./testdata/server.pem", "./testdata/server.key")
+}
+```
+
+### cookie
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/gin-gonic/gin"
+)
+
+func main() {
+
+	router := gin.Default()
+
+	router.GET("/cookie", func(c *gin.Context) {
+
+		cookie, err := c.Cookie("gin_cookie")
+
+		if err != nil {
+			cookie = "NotSet"
+			c.SetCookie("gin_cookie", "test", 3600, "/", "localhost", false, true)
+		}
+
+		fmt.Printf("Cookie value: %s \n", cookie)
+	})
+
+	router.Run()
+}
+```
