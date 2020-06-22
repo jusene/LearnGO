@@ -34,10 +34,13 @@ func main() {
 	{
 		v1.GET("/get/:name", controllers.GetPathParam)
 		v1.GET("/get", controllers.Get)
+		v1.GET("/download", controllers.Download)
 
 		v1.POST("/post/:name", controllers.PostPathParam)
 		v1.POST("/post", controllers.Post)
 		v1.POST("/postheader", controllers.PostHeader)
+		v1.POST("/upload", controllers.Upload)
+
 	}
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

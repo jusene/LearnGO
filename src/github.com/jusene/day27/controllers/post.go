@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/jusene/day27/models"
+	"io"
+	"log"
 	"net/http"
+	"os"
 )
 
 // @summary post path param
@@ -94,5 +97,44 @@ func PostHeader(c *gin.Context) {
 		Name: user.Name,
 		Age:  user.Age,
 		// Hobbys: []models.Hobby{models.Hobby{Name: "ride"}, models.Hobby{Name: "car"}},
+	})
+}
+
+// @Summary upload file
+// @Description
+// @Tags file
+// @Accept multipart/form-data
+// @Param file formData file true "file"
+// @Produce json
+// @Success 200 {object} models.File
+// @Router /upload [post]
+func Upload(c *gin.Context) {
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"err": err.Error(),
+		})
+		return
+	}
+
+	// 获取文件名
+	filename := header.Filename
+	//写入文件
+	out, err := os.Create("./files/" + filename)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"err": err.Error(),
+		})
+		return
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"msg":      "ok",
+		"filename": filename,
 	})
 }

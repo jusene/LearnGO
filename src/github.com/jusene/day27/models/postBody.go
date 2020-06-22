@@ -10,3 +10,8 @@ type Hobby struct {
 	Name string `json:"name"`
 	year int    `json:"year"`
 }
+
+type File struct {
+	Msg      string `json:"msg"`
+	Filename string `json:"filename"`
+}
