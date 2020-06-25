@@ -41,6 +41,9 @@ func main() {
 		v1.POST("/postheader", controllers.PostHeader)
 		v1.POST("/upload", controllers.Upload)
 
+		v1.DELETE("/delete/:name", controllers.Delete)
+		v1.DELETE("/deletequery/:id", controllers.DeleteQuery)
+
 	}
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -54,3 +57,4 @@ func Cors() gin.HandlerFunc {
 		context.Next()
 	}
 }
+

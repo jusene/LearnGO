@@ -6,6 +6,7 @@ import (
 	_ "github.com/jusene/day27/docs"
 	"github.com/jusene/day27/models"
 	"net/http"
+	"os"
 )
 
 // @summary get path param
@@ -48,11 +49,28 @@ func Get(c *gin.Context) {
 // @Summary 下载文件
 // @Description
 // @Tags file
+// @security ApiKeyAuth
 // @Param filename query string true "file name"
 // @Success 200 string ok
+// @Failure 404 {object} models.Err
+// @Failure 401 {object} models.Err
 // @Router /download [get]
 func Download(c *gin.Context) {
+	if !AuthRequired(c) {
+		c.JSON(http.StatusNotFound, models.Err{
+			Code: http.StatusUnauthorized,
+			Msg:  "no authorized",
+		})
+		return
+	}
 	filename := c.DefaultQuery("filename", "")
+	if _, err := os.Lstat("./files/" + filename); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, models.Err{
+			Code: http.StatusNotFound,
+			Msg:  "not found",
+		})
+		return
+	}
 	// 对下载的文件重命名
 	c.Writer.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 	c.Writer.Header().Add("Content-Type", "application/octet-stream")

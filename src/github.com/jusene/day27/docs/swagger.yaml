@@ -1,0 +1,292 @@
+basePath: /v1
+definitions:
+  models.Err:
+    properties:
+      code:
+        type: integer
+      msg:
+        type: string
+    type: object
+  models.File:
+    properties:
+      filename:
+        type: string
+      msg:
+        type: string
+    type: object
+  models.Hobby:
+    properties:
+      name:
+        type: string
+    type: object
+  models.Res:
+    properties:
+      msg:
+        type: string
+      name:
+        type: string
+    type: object
+  models.Ress:
+    properties:
+      names:
+        items:
+          $ref: '#/definitions/models.Res'
+        type: array
+    type: object
+  models.User:
+    properties:
+      age:
+        type: integer
+      hobbys:
+        items:
+          $ref: '#/definitions/models.Hobby'
+        type: array
+      name:
+        type: string
+    type: object
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/terms
+  description: This is a sample api server
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms
+  title: Swagger Example API
+  version: "1.0"
+paths:
+  /delete/{name}:
+    delete:
+      consumes:
+      - application/json
+      description: delete example
+      parameters:
+      - description: name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Res'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.Err'
+      security:
+      - ApiKeyAuth: []
+      summary: delete example
+      tags:
+      - delete
+  /deletequery/{id}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: name
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Res'
+      security:
+      - ApiKeyAuth: []
+      summary: delete example
+      tags:
+      - delete
+  /download:
+    get:
+      parameters:
+      - description: file name
+        in: query
+        name: filename
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Err'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.Err'
+      security:
+      - ApiKeyAuth: []
+      summary: 下载文件
+      tags:
+      - file
+  /get:
+    get:
+      consumes:
+      - application/json
+      description: swagger example get
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Ress'
+      summary: get
+      tags:
+      - get
+  /get/{name}:
+    get:
+      consumes:
+      - application/json
+      description: swagger example get path param
+      parameters:
+      - description: name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Res'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.Err'
+      summary: get path param
+      tags:
+      - get
+  /post:
+    post:
+      consumes:
+      - application/json
+      description: swagger example post body
+      parameters:
+      - description: name
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Err'
+      summary: post body
+      tags:
+      - post
+  /post/{name}:
+    post:
+      consumes:
+      - application/json
+      description: swagger example post path param
+      parameters:
+      - description: name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Res'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.Err'
+      summary: post path param
+      tags:
+      - post
+  /postheader:
+    post:
+      consumes:
+      - application/json
+      description: swagger example post header
+      parameters:
+      - description: name
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.Err'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.Err'
+      security:
+      - ApiKeyAuth: []
+      summary: post header
+      tags:
+      - post
+      - post
+  /upload:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.File'
+      summary: upload file
+      tags:
+      - file
+schemes:
+- http
+- https
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

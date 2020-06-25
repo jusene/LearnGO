@@ -8,7 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-)
+	)
 
 // @summary post path param
 // @description swagger example post path param
@@ -72,15 +72,15 @@ func Post(c *gin.Context) {
 // @failure 401 {object} models.Err
 // @router /postheader [post]
 func PostHeader(c *gin.Context) {
-	var user models.User
-	if c.GetHeader("Authorization") != "1234" {
-		c.JSON(http.StatusUnauthorized, models.Err{
+	if !AuthRequired(c) {
+		c.JSON(http.StatusNotFound, models.Err{
 			Code: http.StatusUnauthorized,
 			Msg:  "no authorized",
 		})
 		return
 	}
 
+	var user models.User
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, models.Err{
 			Code: http.StatusBadRequest,
