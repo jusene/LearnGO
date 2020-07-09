@@ -24,4 +24,6 @@ require (
 	golang.org/x/tools v0.0.0-20200619210111-0f592d2728bb // indirect
 	google.golang.org/protobuf v1.24.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
+	github.com/juju/ratelimit v1.0.1
+	go.uber.org/ratelimit v0.1.0
 )
