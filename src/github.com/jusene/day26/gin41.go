@@ -29,7 +29,7 @@ func tokenRateLimiter() gin.HandlerFunc {
 	fmt.Println("availite token: ", limiter.Available())
 	return func(context *gin.Context) {
 		if limiter.TakeAvailable(1) == 0 {
-			log.Println("available token: %d", limiter.Available())
+			log.Printf("available token: %d", limiter.Available())
 			context.AbortWithStatusJSON(http.StatusTooManyRequests, "too many request")
 		} else {
 			context.Writer.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", limiter.Available()))
