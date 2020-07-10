@@ -18,7 +18,8 @@ func main() {
 		return
 	}
 	fmt.Printf("str:%s\n", b)
-	jsonStr := `{"create_time":"2020-06-04 13:28:26.3052599+08:00"}`
+	//jsonStr := `{"create_time":"2020-07-10T09:57:46.0743201+08:00"}`
+	jsonStr := `{"create_time":"2020-07-10 09:57:46"}`
 	var p2 Post
 	if err := json.Unmarshal([]byte(jsonStr), &p2); err != nil {
 		fmt.Printf("json.Unmarshl failed, err:%v\n", err)

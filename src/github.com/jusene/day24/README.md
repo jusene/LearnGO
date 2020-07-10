@@ -263,3 +263,243 @@ func main() {
 
 ### 自定义解析时间字段
 
+Go语言内置的 json 包使用 RFC3339 标准中定义的时间格式，对我们序列化时间字段的时候有很多限制
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+type Post struct {
+	CreateTime time.Time `json:"create_time"`
+}
+
+func main() {
+	p1 := Post{CreateTime: time.Now()}
+	b, err := json.Marshal(p1)
+	if err != nil {
+		fmt.Printf("json.Marshal p1 failed, err:%v\n", err)
+		return
+	}
+	fmt.Printf("str:%s\n", b)
+	//jsonStr := `{"create_time":"2020-07-10T09:57:46.0743201+08:00"}`
+	jsonStr := `{"create_time":"2020-07-10 09:57:46"}`
+	var p2 Post
+	if err := json.Unmarshal([]byte(jsonStr), &p2); err != nil {
+		fmt.Printf("json.Unmarshl failed, err:%v\n", err)
+		return
+	}
+	fmt.Printf("p2:%#v\n", p2)
+}
+```
+
+实现`json.Marshler`/`json.Unmarshaler`接口实现自定义的事件格式解析.
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+type Order struct {
+	ID          int       `json:"id"`
+	Title       string    `json:"title"`
+	CreatedTime time.Time `json:"created_time"`
+}
+
+const layout = "2006-01-02 15:04:05"
+
+// MarshalJSON 为Order类型实现自定义的MarshalJSON方法
+func (o *Order) MarshalJSON() ([]byte, error) {
+	type TempOrder Order // 定义与Order字段一致的新类型
+	return json.Marshal(struct {
+		CreatedTime string `json:"created_time"`
+		*TempOrder         // 避免直接嵌套Order进入死循环
+	}{
+		CreatedTime: o.CreatedTime.Format(layout),
+		TempOrder:   (*TempOrder)(o),
+	})
+}
+
+// UnmarshalJSON 为Order类型实现自定义的UnmarshalJSON方法
+func (o *Order) UnmarshalJSON(data []byte) error {
+	type TempOrder Order // 定义与Order字段一致的新类型
+	ot := struct {
+		CreatedTime string `json:"created_time"`
+		*TempOrder         // 避免直接嵌套Order进入死循环
+	}{
+		TempOrder: (*TempOrder)(o),
+	}
+	if err := json.Unmarshal(data, &ot); err != nil {
+		return err
+	}
+	var err error
+	o.CreatedTime, err = time.Parse(layout, ot.CreatedTime)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// 自定义序列化方法
+func main() {
+	o1 := Order{
+		ID:          123456,
+		Title:       "《七米的Go学习笔记》",
+		CreatedTime: time.Now(),
+	}
+	// 通过自定义的MarshalJSON方法实现struct -> json string
+	b, err := json.Marshal(&o1)
+	if err != nil {
+		fmt.Printf("json.Marshal o1 failed, err:%v\n", err)
+		return
+	}
+	fmt.Printf("str:%s\n", b)
+	// 通过自定义的UnmarshalJSON方法实现json string -> struct
+	jsonStr := `{"created_time":"2020-04-05 10:18:20","id":123456,"title":"《七米的Go学习笔记》"}`
+	var o2 Order
+	if err := json.Unmarshal([]byte(jsonStr), &o2); err != nil {
+		fmt.Printf("json.Unmarshal failed, err:%v\n", err)
+		return
+	}
+	fmt.Printf("o2:%#v\n", o2)
+}
+```
+
+### 使用匿名结构体添加字段
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+type UserInfo struct {
+	ID int `json:"id"`
+	Name string `json:"name"`
+}
+
+func main() {
+	u1 := UserInfo{
+		ID:   123456,
+		Name: "JUSENE",
+	}
+
+	b, err := json.Marshal(struct {
+		*UserInfo
+		Token string `json:"token"`
+	}{
+		&u1,
+		"1212121212",
+	})
+	if err != nil {
+		fmt.Printf("json.Marsha failed, err:%v\n", err)
+		return
+	}
+	fmt.Printf("str:%s\n", b)
+}
+```
+
+### 使用匿名结构体组合多个结构体
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+type Comment struct {
+	Content string
+}
+
+type Image struct {
+	Title string `json:"title"`
+	URL string `json:"url"`
+}
+
+func main() {
+	c1 := Comment{Content: "永远保持谦逊"}
+	i1 := Image{
+		Title: "jusnee",
+		URL:   "http://www.baidu.com",
+	}
+
+	// struct -> json string
+	b, err := json.Marshal(struct {
+		*Comment
+		*Image
+	}{
+		&c1,
+		&i1,
+	})
+	if err != nil {
+		fmt.Printf("json.Marshal failed, err:%v\n", err)
+		return
+	}
+	fmt.Printf("str:%s\n", b)
+
+	// json string -> struct
+	jsonStr := `{"Content":"永远保持谦逊","title":"jusnee","url":"http://www.baidu.com"}`
+	var (
+		c2 Comment
+		i2 Image
+	)
+
+	if err := json.Unmarshal([]byte(jsonStr), &struct {
+		*Comment
+		*Image
+	}{&c2, &i2}); err != nil {
+		fmt.Printf("json.Unmarshal failed, err:%v\n", err)
+		return
+	}
+	fmt.Printf("c2:%#v i2:%#v\n", c2, i2)
+}
+```
+
+### 处理不确定层级的json
+
+如果json串没有固定的格式导致不好定义与其相对应的结构体时，我们可以使用json.RawMessage原始字节数据保存下来。
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+type sendMsg struct {
+	User string `json:"user"`
+	Msg string `json:"msg"`
+}
+
+func main() {
+	jsonStr := `{"sendMsg":{"user":"q1mi","msg":"永远不要高估自己"},"say":"Hello"}`
+
+	// 定义一个map，value类型为json.RawMessage，方便后续更灵活地处理
+	var data map[string]json.RawMessage
+
+	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
+		fmt.Printf("json.Unmarshal jsonStr failed, err:%v\n", err)
+		return
+	}
+	fmt.Printf("data:%#v\n", data)
+	var msg sendMsg
+	if err := json.Unmarshal(data["sendMsg"], &msg); err != nil {
+		fmt.Printf("json.Unmarshal failed, err:%v\n", err)
+		return
+	}
+	fmt.Printf("msg:%#v\n", msg)
+}
+```
