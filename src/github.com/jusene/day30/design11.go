@@ -92,15 +92,20 @@ func main() {
 	persons = append(persons, GetPerson("Diana", "Female", "Single"))
 	persons = append(persons, GetPerson("Mike", "Male", "Single"))
 	persons = append(persons, GetPerson("Bobby", "Male", "Single"))
+
 	male := new(CriteriaMala)
 	fmt.Println(male.MeetCriteria(persons))
+
 	female := new(CriteriaFemale)
 	fmt.Println(female.MeetCriteria(persons))
+
 	single := new(CriteriaSingle)
 	fmt.Println(single.MeetCriteria(persons))
+
 	singleMale := new(AndCriteria)
 	singleMale.AndCriteria(single, male)
 	fmt.Println(singleMale.MeetCriteria(persons))
+
 	singleFemale := new(AndCriteria)
 	singleFemale.AndCriteria(single, female)
 	fmt.Println(singleFemale.MeetCriteria(persons))
