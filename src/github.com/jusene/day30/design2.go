@@ -2,6 +2,7 @@ package main
 
 import "fmt"
 
+// 抽象工厂
 type AbstractFactory interface {
 	GetColor(colorType string) Color
 	GetShape(shapeType string) Shape
