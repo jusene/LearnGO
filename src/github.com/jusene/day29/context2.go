@@ -42,7 +42,7 @@ func main() {
 	wg.Add(2)
 	go worker(ctx)
 	go worker2(ctx)
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 	cancel()
 	wg.Wait()
 	fmt.Println("over")

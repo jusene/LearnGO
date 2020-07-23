@@ -1,4 +1,4 @@
-## GO语音 Context
+## GO语言 Context
 
 ### Context
 
@@ -63,7 +63,7 @@ func main() {
 
 定义4个具体方法
 
-```go
+```
 type Context interface {
     Deadline() (deadline time.Time, ok bool)
     Done() <-chan struct{}
