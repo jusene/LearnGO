@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/log"
 	"net/http"
+	"strings"
 )
 
 type Exporter struct {
@@ -15,7 +16,7 @@ type Exporter struct {
 }
 
 type ConsulOpt struct {
-	ip string
+	ip   string
 	port int
 }
 
@@ -78,7 +79,6 @@ func newConsulCollector() *consulCollector {
 	}
 }
 
-
 func (c *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.up
 	ch <- c.clusterServers
@@ -99,6 +99,7 @@ func (c *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ok = c.collectLeaderMertic(ch) && ok
 	ok = c.collectNodeMetric(ch) && ok
 	ok = c.collectMembersMetric(ch) && ok
+	ok = c.collectServicesMetric(ch) && ok
 
 	if ok {
 		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 1.0)
@@ -107,7 +108,7 @@ func (c *Exporter) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-func (c *Exporter) collectPeerMetric(ch chan <- prometheus.Metric) bool {
+func (c *Exporter) collectPeerMetric(ch chan<- prometheus.Metric) bool {
 	peers, err := c.client.Status().Peers()
 	if err != nil {
 		log.Errorf("can not query consul: %v", err)
@@ -117,12 +118,14 @@ func (c *Exporter) collectPeerMetric(ch chan <- prometheus.Metric) bool {
 	return true
 }
 
-func (c *Exporter) collectLeaderMertic(ch chan <- prometheus.Metric) bool {
+func (c *Exporter) collectLeaderMertic(ch chan<- prometheus.Metric) bool {
 	leader, err := c.client.Status().Leader()
 	if err != nil {
 		log.Errorf("can not query consul: %v", err)
 		return false
 	}
+
+	// 收集consul leader数据
 	if len(leader) == 0 {
 		ch <- prometheus.MustNewConstMetric(c.clusterLeader, prometheus.GaugeValue, 0)
 	} else {
@@ -131,46 +134,100 @@ func (c *Exporter) collectLeaderMertic(ch chan <- prometheus.Metric) bool {
 	return true
 }
 
-func (c *Exporter) collectNodeMetric(ch chan <- prometheus.Metric) bool {
+func (c *Exporter) collectNodeMetric(ch chan<- prometheus.Metric) bool {
 	nodes, _, err := c.client.Catalog().Nodes(&consul_api.QueryOptions{})
 	if err != nil {
 		log.Errorf("can not query consul: %v", err)
 		return false
 	}
+
+	// 收集consul node数据
 	ch <- prometheus.MustNewConstMetric(c.nodeCount, prometheus.GaugeValue, float64(len(nodes)))
 	return true
 }
 
-func (c *Exporter) collectMembersMetric(ch chan <- prometheus.Metric) bool {
+func (c *Exporter) collectMembersMetric(ch chan<- prometheus.Metric) bool {
 	members, err := c.client.Agent().Members(false)
 	if err != nil {
 		log.Errorf("can not query consul: %v", err)
 		return false
 	}
 
+	// 收集consul member数据
 	for _, enty := range members {
 		ch <- prometheus.MustNewConstMetric(c.memberStatus, prometheus.GaugeValue, float64(enty.Status), enty.Name)
 	}
 	return true
 }
 
-func (c *Exporter) collectServicesMetric(ch chan <- prometheus.Metric) bool {
+func (c *Exporter) collectServicesMetric(ch chan<- prometheus.Metric) bool {
 	serviceNames, _, err := c.client.Catalog().Services(&consul_api.QueryOptions{})
 	if err != nil {
 		log.Errorf("can not query consul: %v", err)
 		return false
 	}
+
+	// 收集consul服务数
 	ch <- prometheus.MustNewConstMetric(c.serviceCount, prometheus.GaugeValue, float64(len(serviceNames)))
-	if c.
+
+	// 收集服务的健康数据
+	if ok := c.collectHealthSummary(ch, serviceNames); !ok {
+		return false
+	}
+	return true
 }
 
-func (c *Exporter) collectHealthSummary(ch chan <- prometheus.Metric, serviceNames map[string][]string) bool {
+func (c *Exporter) collectHealthSummary(ch chan<- prometheus.Metric, serviceNames map[string][]string) bool {
 	ok := make(chan bool)
 	for s := range serviceNames {
-		go func() {
-			if 
-		}()
+		go func(s string) {
+			ok <- c.collectOneHealthSummary(ch, s)
+		}(s)
 	}
+
+	allOK := true
+	for range serviceNames {
+		allOK = <-ok && allOK
+	}
+	close(ok)
+	return allOK
+}
+
+func (c *Exporter) collectOneHealthSummary(ch chan<- prometheus.Metric, serviceName string) bool {
+
+	if strings.HasPrefix(serviceName, "/") {
+		log.Warn("Skipping service because it starts with a slash service_name", serviceName)
+		return true
+	}
+	log.Info("Fetching health summary serviceName ", serviceName)
+
+	service, _, err := c.client.Health().Service(serviceName, "", false, &consul_api.QueryOptions{})
+	if err != nil {
+		log.Error("Failed to query service health err", err)
+		return false
+	}
+
+	for _, entry := range service {
+		passing := 1.
+		for _, hc := range entry.Checks {
+			if hc.Status != consul_api.HealthPassing {
+				passing = 0.
+				break
+			}
+		}
+		ch <- prometheus.MustNewConstMetric(
+			c.serviceNodeHealthy, prometheus.GaugeValue, passing, entry.Service.ID, entry.Node.Node, entry.Service.Service,
+		)
+		tags := make(map[string]struct{})
+		for _, tag := range entry.Service.Tags {
+			if _, ok := tags[tag]; ok {
+				continue
+			}
+			ch <- prometheus.MustNewConstMetric(c.serviceTag, prometheus.GaugeValue, 1, entry.Service.ID, entry.Node.Node, tag)
+			tags[tag] = struct{}{}
+		}
+	}
+	return true
 }
 
 func main() {
