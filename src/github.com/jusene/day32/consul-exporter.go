@@ -100,6 +100,8 @@ func (c *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ok = c.collectNodeMetric(ch) && ok
 	ok = c.collectMembersMetric(ch) && ok
 	ok = c.collectServicesMetric(ch) && ok
+	ok = c.collectHealthSateMetric(ch) && ok
+	ok = c.collectKeyValue(ch) && ok
 
 	if ok {
 		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 1.0)
@@ -226,6 +228,76 @@ func (c *Exporter) collectOneHealthSummary(ch chan<- prometheus.Metric, serviceN
 			ch <- prometheus.MustNewConstMetric(c.serviceTag, prometheus.GaugeValue, 1, entry.Service.ID, entry.Node.Node, tag)
 			tags[tag] = struct{}{}
 		}
+	}
+	return true
+}
+
+func (c *Exporter) collectHealthSateMetric(ch chan<- prometheus.Metric) bool {
+	checks, _, err := c.client.Health().State("any", &consul_api.QueryOptions{})
+	if err != nil {
+		log.Error("Failed to query service health err: ", err)
+		return false
+	}
+
+	for _, hc := range checks {
+		var passing, warning, critical, maintenance float64
+		switch hc.Status {
+		case consul_api.HealthPassing:
+			passing = 1.
+		case consul_api.HealthWarning:
+			warning = 1.
+		case consul_api.HealthCritical:
+			critical = 1.
+		case consul_api.HealthMaint:
+			maintenance = 1.
+		}
+
+		if hc.ServiceID == "" {
+			ch <- prometheus.MustNewConstMetric(
+				c.nodeChecks, prometheus.GaugeValue, passing, hc.CheckID, hc.Node, consul_api.HealthPassing,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.nodeChecks, prometheus.GaugeValue, warning, hc.CheckID, hc.Node, consul_api.HealthWarning,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.nodeChecks, prometheus.GaugeValue, critical, hc.CheckID, hc.Node, consul_api.HealthCritical,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.nodeChecks, prometheus.GaugeValue, maintenance, hc.CheckID, hc.Node, consul_api.HealthMaint,
+			)
+		} else {
+			ch <- prometheus.MustNewConstMetric(
+				c.serviceChecks, prometheus.GaugeValue, passing, hc.CheckID, hc.Node, hc.ServiceID, hc.ServiceName, consul_api.HealthPassing,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.serviceChecks, prometheus.GaugeValue, warning, hc.CheckID, hc.Node, hc.ServiceID, hc.ServiceName, consul_api.HealthWarning,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.serviceChecks, prometheus.GaugeValue, critical, hc.CheckID, hc.Node, hc.ServiceID, hc.ServiceName, consul_api.HealthCritical,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.serviceChecks, prometheus.GaugeValue, maintenance, hc.CheckID, hc.Node, hc.ServiceID, hc.ServiceName, consul_api.HealthMaint,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				c.serviceCheckNames, prometheus.GaugeValue, 1, hc.ServiceID, hc.ServiceName, hc.CheckID, hc.Name, hc.Node,
+			)
+		}
+	}
+	return true
+}
+
+func (c *Exporter) collectKeyValue(ch chan<- prometheus.Metric) bool {
+	kv := c.client.KV()
+	pairs, _, err := kv.List("/oneci/template/arch", &consul_api.QueryOptions{})
+	if err != nil {
+		log.Error("Error fetching key/values err: ", err)
+		return false
+	}
+
+	for _, pair := range pairs {
+		ch <- prometheus.MustNewConstMetric(
+			c.keyValues, prometheus.GaugeValue, 1, pair.Key)
+
 	}
 	return true
 }
