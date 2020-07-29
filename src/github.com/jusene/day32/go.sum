@@ -21,8 +21,10 @@ github.com/fatih/color v1.7.0/go.mod h1:OgrGucDlsUnVH/WQfKWS30wt1W4CHGk4nI15Qncx
 github.com/fatih/color v1.9.0 h1:8xPHl4/q1VyqGIPif1F+1V3Y3lSmrq01EabUW3CoW5s=
 github.com/fatih/color v1.9.0/go.mod h1:eQcE1qtQxscV5RaZvpXrrb8Drkc3/DdQ+uUYCNjL+zU=
 github.com/go-kit/kit v0.8.0/go.mod h1:kWBTxFFAV2EUYN39vg7eqN7VvTM34H0K72WrZ2zT3bg=
+github.com/go-kit/kit v0.9.0 h1:wDJmvq38kDhkVxi50ni9ykkdUr1PKgqKOoi01fa0Mdk=
 github.com/go-kit/kit v0.9.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
 github.com/go-logfmt/logfmt v0.3.0/go.mod h1:RQUGKgAhWTZJr8D93DnIwPtadYeduzuN2pPrYUiZ0Pc=
+github.com/go-logfmt/logfmt v0.4.0 h1:MP4Eh7ZCb31lleYCFuwm0oe4/YGak+5l1vA2NOE80nA=
 github.com/go-logfmt/logfmt v0.4.0/go.mod h1:zQuSszKbdgdZXzqsSMcllBaiG+rsMj4ZiJ9f6i29cWI=
 github.com/go-stack/stack v1.8.0/go.mod h1:Tj/DoAPTTau9PpHnuR+WzNOCdSQZ8SLTDj5eVvHqYvo=
 github.com/gogo/protobuf v1.1.1/go.mod h1:lZvyZNaQOpmdWFOGUp3MdqBqscBGnGp8TxuqgZtOz3U=

@@ -4,14 +4,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/log"
-	"github.com/samuel/go-zookeeper/zk"
+	"io/ioutil"
+	"net"
 	"net/http"
-	"time"
+	"sync"
 )
 
 type Exporter struct {
 	*ZKCollector
-	Conn
+	instance []string
 }
 
 type ZKOpt struct {
@@ -19,15 +20,13 @@ type ZKOpt struct {
 }
 
 func NewExporter(opt ZKOpt, collector *ZKCollector) (*Exporter, error) {
-	conn, _, err := zk.Connect(opt.IP, time.Second*3)
-	if err != nil {
-		return &Exporter{}, err
-	}
-	return &Exporter{collector, conn}, nil
+	return &Exporter{collector, opt.IP}, nil
 }
 
 const (
 	namespace = "zk"
+	state     = "state"
+	ok        = "ruok"
 )
 
 type ZKCollector struct {
@@ -56,7 +55,7 @@ type ZKCollector struct {
 func newZKCollector() *ZKCollector {
 	return &ZKCollector{
 		OK: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "ok"),
-			"Was the last query of Zookeeper successful.", nil, nil),
+			"Was the last query of Zookeeper successful.", []string{"zk_instance"}, nil),
 		AvgLatency: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "avglatency"),
 			"Average Latency for ZooKeeper network requests.", []string{"zk_instance"}, nil),
 		MinLatency: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "minlatency"),
@@ -122,12 +121,45 @@ func (c *Exporter) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *Exporter) Collect(ch chan<- prometheus.Metric) {
+	c.CollectOK(ch)
+}
 
+func (c *Exporter) CollectOK(ch chan<- prometheus.Metric) {
+	var wg sync.WaitGroup
+	for _, address := range c.instance {
+		wg.Add(1)
+		go func(address string, ch chan<- prometheus.Metric) {
+			defer wg.Done()
+			conn, err := connCreate(address)
+			defer conn.Close()
+			if err != nil {
+				log.Error(address, " ", err)
+			}
+			conn.Write([]byte(ok))
+			ruok, _ := ioutil.ReadAll(conn)
+			var okMetric float64
+			if string(ruok) == "imok" {
+				okMetric = 1.
+			} else {
+				okMetric = 0.
+			}
+			ch <- prometheus.MustNewConstMetric(c.OK, prometheus.GaugeValue, okMetric, address)
+		}(address, ch)
+		wg.Wait()
+	}
+}
+
+func connCreate(address string) (net.Conn, error) {
+	if conn, err := net.Dial("tcp", address); err != nil {
+		return nil, err
+	} else {
+		return conn, nil
+	}
 }
 
 func main() {
 	exporter, err := NewExporter(ZKOpt{
-		IP: []string{"192.168.55.161:2181", "192.168.55.162:2181", "192.168.55.171"}},
+		IP: []string{"192.168.55.161:2181", "192.168.55.162:2181", "192.168.55.171:2181"}},
 		newZKCollector())
 	if err != nil {
 		log.Fatalf("exporter create failed! ", err)
