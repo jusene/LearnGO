@@ -130,30 +130,44 @@ func (c *Exporter) CollectOK(ch chan<- prometheus.Metric) {
 		wg.Add(1)
 		go func(address string, ch chan<- prometheus.Metric) {
 			defer wg.Done()
-			conn, err := connCreate(address)
-			defer conn.Close()
+			zk := newZk(address)
+			ruok, err := zk.sendMsg(ok)
 			if err != nil {
-				log.Error(address, " ", err)
+				log.Error(err)
 			}
-			conn.Write([]byte(ok))
-			ruok, _ := ioutil.ReadAll(conn)
-			var okMetric float64
+			var okMetric float64 = 0.
 			if string(ruok) == "imok" {
 				okMetric = 1.
-			} else {
-				okMetric = 0.
 			}
-			ch <- prometheus.MustNewConstMetric(c.OK, prometheus.GaugeValue, okMetric, address)
+			ch <- prometheus.MustNewConstMetric(c.OK, prometheus.GaugeValue, okMetric, zk.Instance)
 		}(address, ch)
 		wg.Wait()
 	}
 }
 
-func connCreate(address string) (net.Conn, error) {
+type zkInstance struct {
+	Instance string
+	Conn     net.Conn
+}
+
+func newZk(address string) *zkInstance {
 	if conn, err := net.Dial("tcp", address); err != nil {
-		return nil, err
+		return &zkInstance{}
 	} else {
-		return conn, nil
+		return &zkInstance{
+			Instance: address,
+			Conn:     conn,
+		}
+	}
+}
+
+func (z zkInstance) sendMsg(cmd string) (string, error) {
+	z.Conn.Write([]byte(cmd))
+	defer z.Conn.Close()
+	if ret, err := ioutil.ReadAll(z.Conn); err != nil {
+		return string(ret), err
+	} else {
+		return string(ret), nil
 	}
 }
 
