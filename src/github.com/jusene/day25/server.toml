@@ -1,0 +1,11 @@
+[server]
+    [server.host]
+    address = "localhost"
+    port = 5799
+    [server.datastore]
+        [server.datastore.metric]
+        address = "127.0.0.1"
+        port = "3099"
+        [server.datastore.warehouse]
+        address = "127.0.0.1"
+        port = 2112

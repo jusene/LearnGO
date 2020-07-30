@@ -395,3 +395,131 @@ func main() {
 
 需要认识到的一件重要事情是，每一个Get方法在找不到值的时候都会返回零值。为了检查给定的键是否存在，提供了IsSet()方法。
 
+### 配置读取优先级
+
+> 磁盘上的配置文件>命令行标志位>环境变量>远程Key/Value存储>默认值
+
+### 提取viper子树
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/spf13/viper"
+)
+
+func main() {
+	viper.SetConfigType("json")
+	viper.SetConfigName("server")
+	viper.AddConfigPath(".")
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			panic(fmt.Errorf("Fatal error config file: %s \n", err))
+		}
+	}
+	fmt.Println(viper.GetString("host.address"))
+	fmt.Println(viper.Get("datastore.metric").([]interface{}))
+
+	subv := viper.Sub("host")
+	fmt.Println(subv.Get("address"))
+
+	viper.Set("host.address", "192.168.66.100")
+	fmt.Println(viper.GetString("host.address")) // 192.168.66.100
+	fmt.Println(subv.Get("address")) // localhost
+}
+```
+
+### 反序列化
+
+你还可以选择将所有或特定的值解析到结构体、map等。
+
+- Unmarshal(rawVal interface{}) : error
+- UnmarshalKey(key string, rawVal interface{}) : error
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/spf13/viper"
+)
+
+type config struct {
+	Port int
+	Name string
+	PathMap string `mapstructure:"path_map"`
+}
+
+func main() {
+	var C config
+	err := viper.Unmarshal(&C)
+	if err != nil {
+		fmt.Errorf("%v", err)
+	}
+}
+```
+
+### 使用多个viper实例
+
+```go
+x := viper.New()
+y := viper.New()
+
+x.SetDefault("ContentDir", "content")
+y.SetDefault("ContentDir", "foobar")
+```
+
+### 实例
+
+```go
+package main
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/fsnotify/fsnotify"
+
+	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
+)
+
+type Config struct {
+	Port    int    `mapstructure:"port"`
+	Version string `mapstructure:"version"`
+}
+
+var Conf = new(Config)
+
+func main() {
+	viper.SetConfigFile("config.yaml") // 指定配置文件路径
+	err := viper.ReadInConfig()               // 读取配置信息
+	if err != nil {                           // 读取配置信息失败
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+	// 将读取的配置信息保存至全局变量Conf
+	if err := viper.Unmarshal(Conf); err != nil {
+		panic(fmt.Errorf("unmarshal conf failed, err:%s \n", err))
+	}
+	// 监控配置文件变化
+	viper.WatchConfig()
+	// 注意！！！配置文件发生变化后要同步到全局变量Conf
+	viper.OnConfigChange(func(in fsnotify.Event) {
+		fmt.Println("配置文件被人修改啦...")
+		if err := viper.Unmarshal(Conf); err != nil {
+			panic(fmt.Errorf("unmarshal conf failed, err:%s \n", err))
+		}
+	})
+
+	r := gin.Default()
+	// 访问/version的返回值会随配置文件的变化而变化
+	r.GET("/version", func(c *gin.Context) {
+		c.String(http.StatusOK, Conf.Version)
+	})
+
+	if err := r.Run(fmt.Sprintf(":%d", Conf.Port)); err != nil {
+		panic(err)
+	}
+}
+```
