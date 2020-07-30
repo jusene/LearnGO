@@ -1,12 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/log"
+	"github.com/spf13/viper"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -27,29 +32,22 @@ const (
 	namespace = "zk"
 	state     = "state"
 	ok        = "ruok"
+	watch     = "wchs"
 )
 
 type ZKCollector struct {
-	OK                      *prometheus.Desc
-	AvgLatency              *prometheus.Desc
-	MinLatency              *prometheus.Desc
-	MaxLatency              *prometheus.Desc
-	PackageReceived         *prometheus.Desc
-	PackageSent             *prometheus.Desc
-	NumAliveConnections     *prometheus.Desc
-	OutstandingRequests     *prometheus.Desc
-	ZnodeCount              *prometheus.Desc
-	WatchCount              *prometheus.Desc
-	EphemeralsCount         *prometheus.Desc
-	ApproximateDataSize     *prometheus.Desc
-	OpenFileDescriptorCount *prometheus.Desc
-	MaxFileDescriptorCount  *prometheus.Desc
-	Followers               *prometheus.Desc
-	SyncedFollowers         *prometheus.Desc
-	PendingSyncs            *prometheus.Desc
-	ServerState             *prometheus.Desc
-	FsyncThresholdExceeded  *prometheus.Desc
-	Version                 *prometheus.Desc
+	OK                  *prometheus.Desc
+	AvgLatency          *prometheus.Desc
+	MinLatency          *prometheus.Desc
+	MaxLatency          *prometheus.Desc
+	PackageReceived     *prometheus.Desc
+	PackageSent         *prometheus.Desc
+	NumAliveConnections *prometheus.Desc
+	OutstandingRequests *prometheus.Desc
+	ZnodeCount          *prometheus.Desc
+	WatchCount          *prometheus.Desc
+	ServerState         *prometheus.Desc
+	Version             *prometheus.Desc
 }
 
 func newZKCollector() *ZKCollector {
@@ -74,24 +72,8 @@ func newZKCollector() *ZKCollector {
 			"Znode count.", []string{"zk_instance"}, nil),
 		WatchCount: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "watchcount"),
 			"Watch count.", []string{"zk_instance"}, nil),
-		EphemeralsCount: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "ephemeralscount"),
-			"Ephemerals Count.", []string{"zk_instance"}, nil),
-		ApproximateDataSize: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "approximatedatasize"),
-			"Approximate data size.", []string{"zk_instance"}, nil),
-		OpenFileDescriptorCount: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "openfiledescriptiorcount"),
-			"Number of currently open file descriptors.", []string{"zk_instance"}, nil),
-		MaxFileDescriptorCount: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "maxfiledescriptorcount"),
-			"Maximum number of open file descriptors", []string{"zk_instance"}, nil),
-		Followers: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "followers"),
-			"Leader only: number of followers.", []string{"zk_instance"}, nil),
-		SyncedFollowers: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "syncedfollowers"),
-			"Leader only: number of followers currently in sync.", []string{"zk_instance"}, nil),
-		PendingSyncs: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "pendingsync"),
-			"Current number of pending syncs", []string{"zk_instance"}, nil),
 		ServerState: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "serverstate"),
 			"Current state of the zk instance: 1 = follower, 2 = leader, 3 = standalone, -1 if unknown.", []string{"zk_instance"}, nil),
-		FsyncThresholdExceeded: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "fsyncthresholdexceeded"),
-			"Number of times File sync exceeded fsyncWarningThresholdMS", []string{"zk_instance"}, nil),
 		Version: prometheus.NewDesc(prometheus.BuildFQName(namespace, "", "version"),
 			"Zookeeper version", []string{"zk_instance", "zk_version"}, nil),
 	}
@@ -100,28 +82,22 @@ func newZKCollector() *ZKCollector {
 func (c *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.OK
 	ch <- c.Version
-	ch <- c.ApproximateDataSize
 	ch <- c.AvgLatency
 	ch <- c.MaxLatency
 	ch <- c.MinLatency
-	ch <- c.EphemeralsCount
-	ch <- c.Followers
-	ch <- c.FsyncThresholdExceeded
-	ch <- c.MaxFileDescriptorCount
 	ch <- c.NumAliveConnections
-	ch <- c.OpenFileDescriptorCount
 	ch <- c.OutstandingRequests
 	ch <- c.PackageReceived
 	ch <- c.PackageSent
 	ch <- c.ServerState
 	ch <- c.ZnodeCount
 	ch <- c.WatchCount
-	ch <- c.SyncedFollowers
-	ch <- c.PendingSyncs
 }
 
 func (c *Exporter) Collect(ch chan<- prometheus.Metric) {
 	c.CollectOK(ch)
+	c.CollectState(ch)
+	c.CollectWatch(ch)
 }
 
 func (c *Exporter) CollectOK(ch chan<- prometheus.Metric) {
@@ -136,10 +112,98 @@ func (c *Exporter) CollectOK(ch chan<- prometheus.Metric) {
 				log.Error(err)
 			}
 			var okMetric float64 = 0.
-			if string(ruok) == "imok" {
+			if ruok == "imok" {
 				okMetric = 1.
 			}
 			ch <- prometheus.MustNewConstMetric(c.OK, prometheus.GaugeValue, okMetric, zk.Instance)
+		}(address, ch)
+		wg.Wait()
+	}
+}
+
+func (c *Exporter) CollectState(ch chan<- prometheus.Metric) {
+	var wg sync.WaitGroup
+	for _, address := range c.instance {
+		wg.Add(1)
+		go func(address string, ch chan<- prometheus.Metric) {
+			defer wg.Done()
+			zk := newZk(address)
+			state, err := zk.sendMsg(state)
+			if err != nil {
+				log.Error(err)
+			}
+			// fmt.Println(state)
+			viper.SetConfigType("yaml")
+			viper.ReadConfig(bytes.NewBuffer([]byte(state)))
+
+			// zk version
+			zkVersion := viper.GetString("Zookeeper version")
+			ch <- prometheus.MustNewConstMetric(c.Version, prometheus.GaugeValue, 1, zk.Instance, zkVersion)
+
+			// zk latency
+			Latency := viper.GetString("Latency min/avg/max")
+			minLatency, _ := strconv.ParseFloat(strings.Split(Latency, "/")[0], 64)
+			avgLatency, _ := strconv.ParseFloat(strings.Split(Latency, "/")[1], 64)
+			maxLatency, _ := strconv.ParseFloat(strings.Split(Latency, "/")[2], 64)
+			ch <- prometheus.MustNewConstMetric(c.MinLatency, prometheus.GaugeValue, minLatency, zk.Instance)
+			ch <- prometheus.MustNewConstMetric(c.AvgLatency, prometheus.GaugeValue, avgLatency, zk.Instance)
+			ch <- prometheus.MustNewConstMetric(c.MaxLatency, prometheus.GaugeValue, maxLatency, zk.Instance)
+
+			// zk AliveConnections Nums
+			AliveCon := viper.GetFloat64("Connections")
+			ch <- prometheus.MustNewConstMetric(c.NumAliveConnections, prometheus.GaugeValue, AliveCon, zk.Instance)
+
+			// zk PackageReceived
+			PackageRecv := viper.GetFloat64("Received")
+			ch <- prometheus.MustNewConstMetric(c.PackageReceived, prometheus.GaugeValue, PackageRecv, zk.Instance)
+
+			// zk PackageSent
+			PackageSent := viper.GetFloat64("Sent")
+			ch <- prometheus.MustNewConstMetric(c.PackageSent, prometheus.GaugeValue, PackageSent, zk.Instance)
+
+			// zk Outstanding
+			Outstanding := viper.GetFloat64("Outstanding")
+			ch <- prometheus.MustNewConstMetric(c.OutstandingRequests, prometheus.GaugeValue, Outstanding, zk.Instance)
+
+			// zk znodecount
+			ZnodeCount := viper.GetFloat64("Node count")
+			ch <- prometheus.MustNewConstMetric(c.ZnodeCount, prometheus.GaugeValue, ZnodeCount, zk.Instance)
+
+			// zk state
+			ZKState := viper.GetString("Mode")
+			var ZKStateID float64
+			switch ZKState {
+			case "follower":
+				ZKStateID = 1
+			case "leader":
+				ZKStateID = 2
+			case "standalone":
+				ZKStateID = 3
+			default:
+				ZKStateID = -1
+			}
+			ch <- prometheus.MustNewConstMetric(c.ServerState, prometheus.GaugeValue, ZKStateID, zk.Instance)
+		}(address, ch)
+		wg.Wait()
+	}
+}
+
+func (c *Exporter) CollectWatch(ch chan<- prometheus.Metric) {
+	var wg sync.WaitGroup
+	for _, address := range c.instance {
+		wg.Add(1)
+		go func(address string, ch chan<- prometheus.Metric) {
+			defer wg.Done()
+			zk := newZk(address)
+			wa, err := zk.sendMsg(watch)
+			if err != nil {
+				log.Error(err)
+			}
+			reg, _ := regexp.Compile(".*:.*")
+			watchCount, _ := strconv.ParseFloat(strings.Split(string(reg.Find([]byte(wa))), ":")[1], 64)
+
+			// zk watch
+			ch <- prometheus.MustNewConstMetric(c.WatchCount, prometheus.GaugeValue, watchCount, zk.Instance)
 		}(address, ch)
 		wg.Wait()
 	}
