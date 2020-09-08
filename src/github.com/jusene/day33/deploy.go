@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	flag "github.com/spf13/pflag"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -45,13 +44,8 @@ func main() {
 		fmt.Println(index, service.Name)
 	}
 
-	clientSet.CoreV1().Services("arch-pre").Create(&v1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{},
-		Spec:       v1.ServiceSpec{},
-		Status:     v1.ServiceStatus{},
-	})
+	endpoints, err := clientSet.CoreV1().Endpoints("arch-pre").List(metav1.ListOptions{})
+	for index, endpoint := range endpoints.Items {
+		fmt.Println(index, endpoint.GetObjectMeta())
+	}
 }
