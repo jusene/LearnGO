@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"io"
 	"log"
+	"os"
 )
 
 func main() {
@@ -42,4 +45,19 @@ func main() {
 	if err := cli.ContainerStart(context.Background(), containerResp.ID, types.ContainerStartOptions{}); err != nil {
 		panic(err)
 	}
+	fmt.Println(containerResp.ID)
+	/*
+		status,  err := cli.ContainerWait(context.Background(), containerResp.ID)
+		if err != nil {
+			log.Println(err)
+		}
+		fmt.Println(status)
+	*/
+
+	out, err := cli.ContainerLogs(context.Background(), containerResp.ID, types.ContainerLogsOptions{ShowStdout: true})
+	if err != nil {
+		panic(err)
+	}
+
+	io.Copy(os.Stdout, out)
 }
