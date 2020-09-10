@@ -12,6 +12,8 @@ type Product struct {
 	Price uint
 }
 
+var db *gorm.DB
+
 func main() {
 	db, err := gorm.Open("mysql", "root:my-secret-pw@tcp(127.0.0.1:3306)/testdb?charset=utf8&parseTime=True&loc=Local")
 	if err != nil {
