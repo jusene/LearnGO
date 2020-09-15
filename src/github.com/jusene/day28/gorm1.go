@@ -2,72 +2,71 @@ package main
 
 import (
 	"fmt"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/mysql"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
-
-type Product struct {
-	gorm.Model
-	Code string
-	Price uint
-}
 
 var db *gorm.DB
 
-func main() {
-	db, err := gorm.Open("mysql", "root:my-secret-pw@tcp(127.0.0.1:3306)/testdb?charset=utf8&parseTime=True&loc=Local")
-	if err != nil {
-		panic("连接数据库失败")
-	}
-	defer db.Close()
+type Product struct {
+	gorm.Model
+	Code  string
+	Price uint
+}
 
-	// 自动迁移模式
+func main() {
+	dsn := "root:12345678@tcp(127.0.0.1:3306)/user?charset=utf8mb4&parseTime=True&loc=Local"
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		// 默认情况下，GORM在事务中执行单个创建、更新、删除操作，以确保数据库数据的完整性
+		// 可以通过将“SkipDefaultTransaction”设置为true来禁用它
+		SkipDefaultTransaction: false,
+		// 命名策略表，列命名策略
+		NamingStrategy: nil,
+		// Logger
+		Logger: nil,
+		// NowFunc创建新时间戳时要使用的函数
+		NowFunc: nil,
+		// DryRun生成sql而不执行
+		DryRun: false,
+		// PrepareStmt在缓存语句中执行给定的查询
+		PrepareStmt: false,
+		// 禁止自動ping
+		DisableAutomaticPing: false,
+		// 迁移时禁用ForeignKeyConstraintWhen迁移
+		DisableForeignKeyConstraintWhenMigrating: false,
+		// 允許全局更新
+		AllowGlobalUpdate: false,
+		// 子句生成器
+		ClauseBuilders: nil,
+		// 连接池db连接池
+		ConnPool:  nil,
+		Dialector: nil,
+		Plugins:   nil,
+	})
+
+	if err != nil {
+		panic("failed to connect database")
+	}
+
+	// 迁移架构
 	db.AutoMigrate(&Product{})
 
-	db.DropTableIfExists(&Product{})
 	// 创建
-	if !db.HasTable("products") {
-		/*
-		db.Create(&Product{
-			Code:  "L1212",
-			Price: 1000,
-		})
-		*/
-		db.Set("gorm:table_options", "ENGINE=InnoDB").CreateTable(&Product{})
-	}
-
-	// 插入值
-	p := &Product{
-		Code:  "L1212",
-		Price: 1000,
-	}
-	db.Create(p)
-
-	// 修改列
-	db.Model(&Product{}).ModifyColumn("price", "bigint not null")
-
-	// 删除列
-	//db.Model(&Product{}).DropColumn("price")
-
-	// 添加外键
-	// 1st param : 外键字段
-	// 2nd param : 外键表(字段)
-	// 3rd param : ONDELETE
-	// 4th param : ONUPDATE
-	// db.Model(&User{}).AddForeignKey("city_id", "cities(id)", "RESTRICT", "RESTRICT")
-
-	// 索引
-	db.Model(&Product{}).AddIndex("idx_product_code", "code")
-	db.Model(&Product{}).AddIndex("idx_product_code_price", "code", "price")
-	db.Model(&Product{}).AddUniqueIndex("idx_product_code", "code")
-	db.Model(&Product{}).AddUniqueIndex("idx_product_code_price", "code", "price")
-	db.Model(&Product{}).RemoveIndex("idx_product_code_price")
+	db.Create(&Product{Code: "D42", Price: 100})
 
 	// 读取
 	var product Product
-	//row := db.First(&product, 1) //查询id为1的product
-	db.First(&product, "code = ?", "L1212") // 查询code为l1212的product
+	// SELECT * FROM `products` WHERE `products`.`id` = 1 AND `products`.`deleted_at` IS NULL ORDER BY `products`.`id` LIMIT 1
+	db.First(&product, 1)
+	fmt.Println(product.Code)
+	db.First(&product, "code = ?", "D42")
 	fmt.Println(product.ID)
+
+	// 更新
+	db.Model(&product).Where("code = ?", "F43").Update("Price", 200)
+	db.Model(&product).Updates(Product{Price: 300, Code: "F43"})
+	db.Model(&product).Updates(map[string]interface{}{"Price": 400})
+
+	// 删除
+	db.Delete(&product, 1)
 }
-
-
