@@ -91,31 +91,91 @@ func main() {
 
 ```go
 type User struct {
+    Name string `gorm:"<-:create"` // allow read and create
+    Name string `gorm:"<-:update"` // allow read and update
+    Name string `gorm:"<-"`        // allow read and write (create and update)
+    Name string `gorm:"<-:false"`  // allow read, disable write perssion
+    Name string `gorm:"->"`        // readonly (disable write perssion)
+    Name string `gorm:"->;<-:create"` // allow read and create
+    Name string `gorm:"->:false;<-:create"` // createonly (disabled read from db)
+    Name string `gorm:"-"`         // ignore this field when write and read
+}
+```
+
+GORM 默认使用 `CreatedAt`,'UpdatedAt' 去追踪创建和更新时间，如果不同的字段名称，需要tag `autoCreateTime`,'autoUpdateTime'
+
+```go
+type User struct {
+    CreatedAt time.Time // Set to current time if it is zero on creating
+    UpdatedAt int  // Set to current unix seconds on updaing or if it is zero on creating
+    Updated int64  `gorm:"autoUpdateTime:nano"` // Use unix nano seconds as updating time
+    Updated int64  `gorm:"autoUpdateTime:milli"` // Use unix milli seconds as updating time
+    Created int64  `gorm:"autoCreateTime"`  // Use unix second as creating time
+}
+```
+
+嵌入结构
+
+```go
+type User struct {
     gorm.Model
-    Birthday time.Time
-    Age int
-    Name string `gorm:"size:255"` // string默认长度为255，使用这种tag重设
-    Num int `gorm:"AUTO_INCREMENT"` // 自增
-
-    CreditCard  CreditCard // One-To-One （拥有一个 - CreditCard表的UserID作外键）
-    Emails   []Email // One-To-Many (拥有多个 - Email表的UserID作外键)
-
-    BillingAddress Address // One-To-One (属于 - 本表的BillingAddressID作外键)
-    BillingAddressID sql.NullInt64
-    
-    ShippingAddress Address // One-To-One (属于 - 本表的ShippingAddressID作外键)
-    ShippingAddressID int
-    
-    IgnoreMe int `gorm:"-"` // 忽略这个字段
-    Languages []Language `gorm:"many2many:user_languages"` // Many-To-Many , 'user_languages'是连接表
+    Name string
 }
 
-type Email struct { 
-    ID int
-    UserID int `gorm:"index"` 
-
-
-
-
-
+// equals
+type User struct {
+    ID uint   `gorm:"primaryKey"`
+    CreateAt time.Time
+    UpdateAt time.Time
+    DeleteAt gorm.DeleteAt `gorm:"index"`
+    Name string
+}
 ```
+
+```go
+type Author struct {
+    Name string
+    Email string
+}
+
+type Blog struct {
+    ID int
+    Author Author `gorm:"embedded"`
+    Upvotes int32
+}
+
+// equals
+type Blog struct {
+    ID int64
+    Name string
+    Email string
+    Upvote int32
+}
+```
+
+并且可以使用tag `embeddedPrefix` 去添加添加内嵌前缀字段名
+
+```go
+type Blog struct {
+    ID int
+    Author Author `gorm:"embedded;embeddedPrefix:author_"`
+    Upvotes int32
+}
+
+// equals   
+type Blog struct {
+    ID int64
+    AuthorName string
+    AuthorEmail string
+    Upvotes int32
+}
+```
+
+## 字段标签
+
+| 标签名称 | 描述 | 
+| -----| ----- | 
+| column | 列数据库名称 | 
+| type | 列数据类型，使用兼容的通用类型，例如：bool、int、uint、float、string、time、bytes，适用于所有数据库，可以与其他标记一起使用，如not null、size、autoIncrement…在使用指定的数据库数据类型时，也支持varbinary（8）等指定的数据库数据类型，它需要是一个完整的数据库数据类型，例如：MEDIUMINT UNSIGNED NOT NULL AUTO_INCREMENT | 
+| size | 指定列数据的大小/长度 |
+| 
