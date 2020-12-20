@@ -1,9 +1,9 @@
 package main
 
-import beego "github.com/beego/beego/v2/server/web"
+import "github.com/beego/beego/v2/server/web"
 
 type MainController struct {
-	beego.Controller
+	web.Controller
 }
 
 func (c *MainController) Get() {
@@ -11,6 +11,6 @@ func (c *MainController) Get() {
 }
 
 func main() {
-	beego.Router("/", &MainController{})
-	beego.Run()
+	web.Router("/", &MainController{})
+	web.Run()
 }
