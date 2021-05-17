@@ -6,5 +6,7 @@ import (
 )
 
 func main() {
+	beego.SetStaticPath("/download", "download")
+	beego.AppConfig.String("appname")
 	beego.Run()
 }

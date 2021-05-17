@@ -18,3 +18,4 @@ go get github.com/beego/bee/v2
 - bee generate 附带了一个源代码生成器，可以加快开发速度
 - bee dockerize 通过生成Dockerfile
 - bee dlv debug应用，开始一个debug会话
+

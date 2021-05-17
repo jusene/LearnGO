@@ -53,7 +53,8 @@ func main() {
 	fmt.Println(result.Error)
 	fmt.Println(result.RowsAffected)
 
-	gormDB.Debug().Where("id = ?", "1").First(&user)
-	fmt.Println(user.Birthday)
+	var u User
+	gormDB.Debug().First(&u, "id = ?", 1)
+	fmt.Println(u.ID)
 
 }
