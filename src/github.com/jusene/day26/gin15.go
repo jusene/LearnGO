@@ -18,7 +18,7 @@ func main() {
 
 func startPage(ctx *gin.Context) {
 	var person Person
-	if ctx.ShouldBindQuery(&person) == nil {
+	if err := ctx.ShouldBindQuery(&person); err != nil {
 		log.Println("====== Only Bind By Query String ======")
 		log.Println(person.Name)
 		log.Println(person.Address)

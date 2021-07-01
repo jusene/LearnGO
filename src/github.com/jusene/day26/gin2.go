@@ -26,6 +26,7 @@ func main() {
 			"name": name,
 			"age":  age,
 			"code": 200,
+			"path": context.FullPath(),
 		})
 	})
 	// http://127.0.0.1:8080/get/jusene/29/send   jusene is /send

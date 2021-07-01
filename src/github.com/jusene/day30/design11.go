@@ -2,6 +2,7 @@ package main
 
 import "fmt"
 
+// 过滤器模式
 type Person struct {
 	Name          string
 	Gender        string
@@ -73,7 +74,7 @@ func (s *AndCriteria) AndCriteria(criteria Criteria, otherCriteria Criteria) {
 	s.otherCriteria = otherCriteria
 }
 
-// 多重组合过滤
+// 多重组合过滤 and
 func (s *AndCriteria) MeetCriteria(persons []Person) []Person {
 	firstCriteriaPersons := s.criteria.MeetCriteria(persons)
 	return s.otherCriteria.MeetCriteria(firstCriteriaPersons)
@@ -82,6 +83,19 @@ func (s *AndCriteria) MeetCriteria(persons []Person) []Person {
 type OrCriteria struct {
 	criteria      Criteria
 	otherCriteria Criteria
+}
+
+// 多重组合过滤 or
+func (s *OrCriteria) OrCriteria(criteria Criteria, otherCriteria Criteria) {
+	s.criteria = criteria
+	s.otherCriteria = otherCriteria
+}
+
+func (s *OrCriteria) MeetCriteria(persons []Person) []Person {
+	var p []Person
+	p = append(s.criteria.MeetCriteria(persons))
+	p = append(s.otherCriteria.MeetCriteria(persons))
+	return p
 }
 
 func main() {
@@ -106,7 +120,7 @@ func main() {
 	singleMale.AndCriteria(single, male)
 	fmt.Println(singleMale.MeetCriteria(persons))
 
-	singleFemale := new(AndCriteria)
-	singleFemale.AndCriteria(single, female)
+	singleFemale := new(OrCriteria)
+	singleFemale.OrCriteria(single, male)
 	fmt.Println(singleFemale.MeetCriteria(persons))
 }
