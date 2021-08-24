@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	file, err := os.Open("./src/github.com/jusene/day19/reader.go")
+	file, err := os.Open("./src/github.com/jusene/day19-file/reader.go")
 	if err != nil {
 		panic(err)
 	}
