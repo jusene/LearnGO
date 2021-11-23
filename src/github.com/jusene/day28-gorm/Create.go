@@ -20,7 +20,7 @@ func main() {
 	var dsn = &Dsn{
 		Host: "127.0.0.1",
 		User: "root",
-		Pass: "123456",
+		Pass: "mysql",
 		Port: 3306,
 		DB:   "user",
 	}
@@ -31,7 +31,7 @@ func main() {
 	sqlDB, _ := sql.Open("mysql", ds)
 	gormDB, _ := gorm.Open(mysql.New(mysql.Config{
 		Conn: sqlDB,
-	}), &gorm.Config{})
+	}), &gorm.Config{AllowGlobalUpdate: true})
 
 	type User struct {
 		gorm.Model
@@ -56,5 +56,6 @@ func main() {
 	var u User
 	gormDB.Debug().First(&u, "id = ?", 1)
 	fmt.Println(u.ID)
-
+	time.Sleep(1 * time.Second)
+	gormDB.Model(&u).Debug().Where("name = ?", "zgx").Update("age", 28)
 }

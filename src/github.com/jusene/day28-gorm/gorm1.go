@@ -15,7 +15,7 @@ type Product struct {
 }
 
 func main() {
-	dsn := "root:12345678@tcp(127.0.0.1:3306)/user?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := "root:mysql@tcp(127.0.0.1:3306)/user?charset=utf8mb4&parseTime=True&loc=Local"
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		// 默认情况下，GORM在事务中执行单个创建、更新、删除操作，以确保数据库数据的完整性
 		// 可以通过将“SkipDefaultTransaction”设置为true来禁用它
@@ -63,8 +63,8 @@ func main() {
 	fmt.Println(product.ID)
 
 	// 更新
-	db.Model(&product).Where("code = ?", "F43").Update("Price", 200)
-	db.Model(&product).Updates(Product{Price: 300, Code: "F43"})
+	db.Model(&product).Debug().Where("code = ?", "F43").Update("Price", 200)
+	db.Model(&product).Debug().Updates(Product{Price: 300, Code: "F43"})
 	db.Model(&product).Updates(map[string]interface{}{"Price": 400})
 
 	// 删除
